@@ -9,18 +9,27 @@ use crate::bpz::{Cell, Dir, Pos, Puzzle, Shading};
 
 #[derive(Debug, Clone)]
 pub enum Instr {
-    Heading(String),
+    Heading(#[allow(dead_code)] String),
     SetPuzzleType(String),
     SetWidth(u32),
     SetHeight(u32),
     SetIn(Pos, Dir),
     SetOut(Pos, Dir),
     SetShading(Pos, Shading),
-    RectSetShading { bl: Pos, tr: Pos, shading: Shading },
+    RectSetShading {
+        bl: Pos,
+        tr: Pos,
+        shading: Shading,
+    },
     SetText(Pos, String),
     AddArrow(Pos, Dir),
-    AddPortal { start: Pos, end: Pos, nticks: u32 },
-    Path(Vec<Pos>),
+    #[allow(dead_code)]
+    AddPortal {
+        start: Pos,
+        end: Pos,
+        nticks: u32,
+    },
+    Path(#[allow(dead_code)] Vec<Pos>),
     Noop,
 }
 
