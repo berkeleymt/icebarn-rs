@@ -1,3 +1,4 @@
+pub mod editor;
 mod parser;
 
 use std::{
@@ -15,12 +16,26 @@ pub struct Pos {
     pub col: i32,
 }
 
+impl Pos {
+    fn is_adjacent_to(&self, other: &Pos) -> bool {
+        let row_diff = (other.row - self.row).abs();
+        let col_diff = (other.col - self.col).abs();
+        row_diff == 1 && col_diff == 0 || row_diff == 0 && col_diff == 1
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Dir {
     North,
     South,
     East,
     West,
+}
+
+impl Dir {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        [Self::North, Self::South, Self::East, Self::West].into_iter()
+    }
 }
 
 impl Add<Dir> for Pos {
@@ -52,11 +67,23 @@ pub enum Shading {
     Removed,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Cell {
     shading: Shading,
     text: Option<String>,
     arrows: HashSet<Dir>,
+    interactive: bool,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            shading: Shading::default(),
+            text: Option::default(),
+            arrows: HashSet::default(),
+            interactive: true,
+        }
+    }
 }
 
 impl Cell {
@@ -102,5 +129,11 @@ impl FromStr for Puzzle {
             .into_result()
             .map_err(|_| ParseError::ParseError)?;
         Ok(parser::build(instrs)?)
+    }
+}
+
+impl Puzzle {
+    fn get_cell(&self, pos: Pos) -> &Cell {
+        self.cells.get(&pos).unwrap_or(&self.default_cell)
     }
 }

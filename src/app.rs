@@ -1,9 +1,24 @@
+use std::sync::LazyLock;
+
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     StaticSegment,
 };
+
+use crate::bpz::{editor::PuzzleEditor, Puzzle};
+
+static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
+    [
+        ("Basic 1", include_str!("../puzzles/basic-1.bpz")),
+        ("Basic 2", include_str!("../puzzles/basic-2.bpz")),
+        ("Basic 3", include_str!("../puzzles/basic-3.bpz")),
+    ]
+    .into_iter()
+    .map(|(name, src)| (name, src.parse().unwrap()))
+    .collect()
+});
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -50,12 +65,11 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    let count = RwSignal::new(0);
-    let on_click = move |_| *count.write() += 1;
-
     view! {
-        <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <div class="flex flex-col items-center justify-center p-8 gap-8">
+        {PUZZLES.iter().map(|(_, puzzle)| view! {
+            <PuzzleEditor puzzle=puzzle />
+        }).collect::<Vec<_>>()}
+        </div>
     }
 }

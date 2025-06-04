@@ -198,10 +198,11 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
             .into_iter()
             .cartesian_product(-2..=width + 1),
     ) {
-        cells
+        let entry = cells
             .entry(Pos { row, col })
             .or_default()
             .set_shading(Shading::Removed);
+        entry.interactive = matches!(entry.text, Some(_));
     }
 
     Ok(Puzzle {
