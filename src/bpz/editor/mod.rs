@@ -26,10 +26,8 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
             <PuzzleCell
                 puzzle=&puzzle
                 pos=pos
-                lines=lines.into()
-                on_click=move |_| set_state.write().on_click(pos)
-                on_mousedown=move |_| set_state.write().on_mousedown(pos)
-                on_mouseenter=move |_| set_state.write().on_mouseenter(pos)
+                lines=lines
+                set_state=set_state
             />
         }
     };

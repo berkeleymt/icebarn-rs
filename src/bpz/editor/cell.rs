@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
-use leptos::{ev::MouseEvent, prelude::*};
+use leptos::prelude::*;
 
+use super::state::State;
 use crate::{
     bpz::{Dir, Pos, Puzzle, Shading},
     heroicons::solid::ArrowLongUp,
@@ -47,10 +48,8 @@ fn rotate_from_north(dir: Dir) -> &'static str {
 pub fn PuzzleCell<'a>(
     puzzle: &'a Puzzle,
     pos: Pos,
-    lines: Signal<HashSet<Dir>>,
-    on_click: impl FnMut(MouseEvent) -> () + 'static,
-    on_mousedown: impl FnMut(MouseEvent) -> () + 'static,
-    on_mouseenter: impl FnMut(MouseEvent) -> () + 'static,
+    #[prop(into)] lines: Signal<HashSet<Dir>>,
+    set_state: WriteSignal<State>,
 ) -> impl IntoView {
     let mut td_classes = vec!["group w-12 h-12"];
     let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
@@ -106,9 +105,9 @@ pub fn PuzzleCell<'a>(
         view! {
             <div
                 class="absolute inset-0 z-100 cursor-pointer group-hover:bg-black/10"
-                on:click=on_click
-                on:mousedown=on_mousedown
-                on:mouseenter=on_mouseenter
+                on:click=move |_| set_state.write().on_click(pos)
+                on:mousedown=move |_| set_state.write().on_mousedown(pos)
+                on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
             />
         }
     });
@@ -125,7 +124,8 @@ pub fn PuzzleCell<'a>(
     view! {
         <td class=td_classes.join(" ")>
             <div class=div_classes
-                .join(" ")>{interactive_overlay} {text} {arrows} {render_lines}</div>
+                .join(" ")>
+                {interactive_overlay} {text} {arrows} {render_lines}</div>
         </td>
     }
 }
