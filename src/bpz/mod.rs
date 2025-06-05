@@ -17,10 +17,33 @@ pub struct Pos {
 }
 
 impl Pos {
-    fn is_adjacent_to(&self, other: &Pos) -> bool {
+    pub fn is_adjacent_to(&self, other: &Pos) -> bool {
         let row_diff = (other.row - self.row).abs();
         let col_diff = (other.col - self.col).abs();
         row_diff == 1 && col_diff == 0 || row_diff == 0 && col_diff == 1
+    }
+
+    pub fn line_to(mut self, other: Pos) -> Vec<Pos> {
+        let row_dist = (other.row - self.row).abs();
+        let row_step = (other.row - self.row).clamp(-1, 1);
+        let col_dist = -(other.col - self.col).abs();
+        let col_step = (other.col - self.col).clamp(-1, 1);
+
+        let mut error = row_dist + col_dist;
+        let mut result = vec![self];
+
+        while self != other {
+            if row_dist + col_dist < 4 * error {
+                error += col_dist;
+                self.row += row_step;
+            } else {
+                error += row_dist;
+                self.col += col_step;
+            }
+            result.push(self);
+        }
+
+        return result;
     }
 }
 

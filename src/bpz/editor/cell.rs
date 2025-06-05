@@ -57,11 +57,8 @@ pub fn PuzzleCell<'a>(
 
     let cell = puzzle.get_cell(pos);
 
-    match (cell.shading, &cell.text) {
-        (Shading::Default, _) => td_classes.push("hover:bg-gray-200"),
-        (Shading::Icebarn, _) => td_classes.push("bg-blue-200 hover:bg-blue-300"),
-        (Shading::Removed, Some(_)) => td_classes.push("hover:bg-gray-200"),
-        (Shading::Removed, None) => {}
+    if cell.shading == Shading::Icebarn {
+        td_classes.push("bg-blue-200");
     }
 
     for dir in Dir::iter() {
@@ -76,9 +73,7 @@ pub fn PuzzleCell<'a>(
         div_classes.push(div_class);
     }
 
-    let arrows: Vec<_> = cell
-        .arrows
-        .iter()
+    let arrows: Vec<_> = cell.arrows.iter()
         .map(|&dir| {
             let classes = [
                 "z-1 flex items-center justify-center absolute inset-0 -translate-y-1/2 origin-bottom",
@@ -93,40 +88,44 @@ pub fn PuzzleCell<'a>(
         .collect();
 
     let render_lines = move || -> Vec<_> {
-        lines
-            .get()
-            .iter()
+        lines.get().iter()
             .map(|&dir| {
                 let classes = [
                     "absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-1 bg-red-500 origin-bottom",
                     rotate_from_north(dir)
                 ];
-                view! { <div class=classes.join(" ") /> }
+                view! {
+                    <div class=classes.join(" ") />
+                    <div class="absolute w-1 h-1 bg-red-500" />
+                }
             })
             .collect()
     };
 
+    let interactive_overlay = cell.interactive.then(|| {
+        view! {
+            <div
+                class="absolute inset-0 z-100 cursor-pointer group-hover:bg-black/10"
+                on:click=on_click
+                on:mousedown=on_mousedown
+                on:mouseenter=on_mouseenter
+            />
+        }
+    });
+
+    let text = match cell.text.as_deref() {
+        Some(text) => view! { <span class="z-1">{text}</span> }.into_any(),
+        None if cell.interactive => {
+            view! { <div class="w-1 h-1 bg-gray-400 group-hover:bg-black rounded-full" /> }
+                .into_any()
+        }
+        None => view!().into_any(),
+    };
+
     view! {
         <td class=td_classes.join(" ")>
-            <div class=div_classes.join(" ")>
-                <div
-                    class="absolute inset-0 z-100"
-                    class=("cursor-pointer", cell.interactive)
-                    on:click=on_click
-                    on:mousedown=on_mousedown
-                    on:mouseenter=on_mouseenter
-                />
-                {match cell.text.as_deref() {
-                    Some(text) => view!(<span class="z-1">{text}</span>).into_any(),
-                    None if cell.interactive => {
-                        view!(<div class="w-1 h-1 bg-gray-400 group-hover:bg-black rounded-full" />)
-                            .into_any()
-                    }
-                    None => view!().into_any(),
-                }}
-                {arrows}
-                {render_lines}
-            </div>
+            <div class=div_classes
+                .join(" ")>{interactive_overlay} {text} {arrows} {render_lines}</div>
         </td>
     }
 }

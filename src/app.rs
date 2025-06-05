@@ -67,9 +67,10 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     view! {
         <div class="flex flex-col items-center justify-center p-8 gap-8">
-        {PUZZLES.iter().map(|(_, puzzle)| view! {
-            <PuzzleEditor puzzle=puzzle />
-        }).collect::<Vec<_>>()}
+            {PUZZLES
+                .iter()
+                .map(|(_, puzzle)| view! { <PuzzleEditor puzzle=puzzle /> })
+                .collect::<Vec<_>>()}
         </div>
     }
 }
