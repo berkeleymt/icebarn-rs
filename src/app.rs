@@ -7,7 +7,7 @@ use leptos_router::{
     StaticSegment,
 };
 
-use crate::bpz::{editor::PuzzleEditor, Puzzle};
+use crate::{bpz::Puzzle, editor::PuzzleEditor};
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
     [

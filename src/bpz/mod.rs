@@ -1,4 +1,3 @@
-pub mod editor;
 mod parser;
 
 use std::{
@@ -96,10 +95,10 @@ pub enum Shading {
 
 #[derive(Debug, Clone)]
 pub struct Cell {
-    shading: Shading,
-    text: Option<String>,
-    arrows: HashSet<Dir>,
-    interactive: bool,
+    pub shading: Shading,
+    pub text: Option<String>,
+    pub arrows: HashSet<Dir>,
+    pub interactive: bool,
 }
 
 impl Default for Cell {
@@ -132,8 +131,8 @@ impl Cell {
 
 #[derive(Debug, Clone)]
 pub struct Puzzle {
-    bl: Pos,
-    tr: Pos,
+    pub bl: Pos,
+    pub tr: Pos,
     default_cell: Cell,
     cells: HashMap<Pos, Cell>,
 }
@@ -160,7 +159,7 @@ impl FromStr for Puzzle {
 }
 
 impl Puzzle {
-    fn get_cell(&self, pos: Pos) -> &Cell {
+    pub fn get_cell(&self, pos: Pos) -> &Cell {
         self.cells.get(&pos).unwrap_or(&self.default_cell)
     }
 }

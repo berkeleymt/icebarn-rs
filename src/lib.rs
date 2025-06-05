@@ -1,5 +1,6 @@
 pub mod app;
 pub mod bpz;
+pub mod editor;
 pub mod heroicons;
 
 #[cfg(feature = "hydrate")]
