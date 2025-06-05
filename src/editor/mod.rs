@@ -20,6 +20,21 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
 
     let preview = move || state.get().preview();
 
+    let handles = [
+        window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup()),
+        window_event_listener(ev::keydown, move |evt| {
+            if evt.key() == "Escape" {
+                set_state.write().on_escape();
+            }
+        }),
+    ];
+
+    on_cleanup(move || {
+        for handle in handles {
+            handle.remove()
+        }
+    });
+
     let render_cell = |pos| {
         let lines = Memo::new(move |_| {
             let dirs = state.get().lines().dirs_for_cell(pos);
@@ -28,21 +43,6 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 .map(|dir| (dir, "bg-red-500"))
                 .chain(preview_dirs.into_iter().map(|dir| (dir, "bg-black/30")))
                 .collect::<HashMap<_, _>>()
-        });
-
-        let handles = [
-            window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup()),
-            window_event_listener(ev::keydown, move |evt| {
-                if evt.key() == "Escape" {
-                    set_state.write().on_escape();
-                }
-            }),
-        ];
-
-        on_cleanup(move || {
-            for handle in handles {
-                handle.remove()
-            }
         });
 
         view! {
