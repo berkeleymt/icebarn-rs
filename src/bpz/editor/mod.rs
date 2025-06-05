@@ -26,12 +26,24 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
             let preview_dirs = preview().dirs_for_cell(pos);
             dirs.into_iter()
                 .map(|dir| (dir, "bg-red-500"))
-                .chain(preview_dirs.into_iter().map(|dir| (dir, "bg-gray-500")))
+                .chain(preview_dirs.into_iter().map(|dir| (dir, "bg-black/30")))
                 .collect::<HashMap<_, _>>()
         });
 
-        let handle = window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup());
-        on_cleanup(move || handle.remove());
+        let handles = [
+            window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup()),
+            window_event_listener(ev::keydown, move |evt| {
+                if evt.key() == "Escape" {
+                    set_state.write().on_escape();
+                }
+            }),
+        ];
+
+        on_cleanup(move || {
+            for handle in handles {
+                handle.remove()
+            }
+        });
 
         view! {
             <PuzzleCell

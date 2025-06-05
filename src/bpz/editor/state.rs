@@ -188,4 +188,10 @@ impl State {
             ClickedAndHeld { clicked, .. } => self.draw_state = Clicked(clicked),
         }
     }
+
+    pub fn on_escape(&mut self) {
+        if let DrawState::Clicked(_) = self.draw_state {
+            self.draw_state = DrawState::Idle;
+        }
+    }
 }
