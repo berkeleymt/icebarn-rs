@@ -3,6 +3,7 @@ mod state;
 
 use std::collections::{HashSet, VecDeque};
 
+use itertools::Itertools;
 use leptos::{
     ev::{self},
     prelude::*,
@@ -19,10 +20,35 @@ use crate::{
     heroicons::solid::Trash,
 };
 
+fn line_no_diag(mut p1: Pos, p2: Pos) -> Vec<Pos> {
+    let row_dist = (p2.row - p1.row).abs();
+    let row_step = (p2.row - p1.row).clamp(-1, 1);
+    let col_dist = -(p2.col - p1.col).abs();
+    let col_step = (p2.col - p1.col).clamp(-1, 1);
+
+    let mut error = row_dist + col_dist;
+    let mut result = vec![p1];
+
+    while p1 != p2 {
+        if row_dist + col_dist < 4 * error {
+            error += col_dist;
+            p1.row += row_step;
+        } else {
+            error += row_dist;
+            p1.col += col_step;
+        }
+        result.push(p1);
+    }
+
+    return result;
+}
+
 #[component]
 pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
     let (_drag_state, set_drag_state) = signal(None);
     let (all_lines, set_all_lines) = signal(HashSet::<Line>::new());
+
+    let (_clicked, set_clicked) = signal(None::<Pos>);
 
     let render_cell = |pos| {
         let lines = Memo::new(move |_| {
@@ -31,6 +57,20 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 .filter(|&dir| all_lines.contains(&Line(pos, pos + dir)))
                 .collect()
         });
+
+        let on_click = move |_| {
+            set_clicked.update(|opt| match opt.take() {
+                Some(prev_pos) => {
+                    let mut mutref = set_all_lines.write();
+                    for (p1, p2) in line_no_diag(prev_pos, pos).into_iter().tuple_windows() {
+                        mutref.insert(Line(p1, p2));
+                    }
+                }
+                None => {
+                    *opt = Some(pos);
+                }
+            });
+        };
 
         let on_mousedown = move |_| {
             set_drag_state.set(Some(DragState {
@@ -57,16 +97,18 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                             mode: Some(DragMode::Add),
                             drawn_lines,
                         } => {
-                            if last_pos.is_adjacent_to(&pos) {
-                                let line = Line(*last_pos, pos);
+                            let mut mutref = set_all_lines.write();
+                            for (p1, p2) in line_no_diag(*last_pos, pos).into_iter().tuple_windows()
+                            {
+                                let line = Line(p1, p2);
                                 if drawn_lines.back() == Some(&line) {
                                     drawn_lines.pop_back();
-                                    set_all_lines.write().remove(&line);
+                                    mutref.remove(&line);
                                 } else {
                                     drawn_lines.push_back(line);
-                                    set_all_lines.write().insert(line);
+                                    mutref.insert(line);
                                 }
-                            };
+                            }
                         }
                         DragState {
                             last_pos,
@@ -94,6 +136,7 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 puzzle=&puzzle
                 pos=pos
                 lines=lines.into()
+                on_click=on_click
                 on_mousedown=on_mousedown
                 on_mouseenter=on_mouseenter
             />

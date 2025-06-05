@@ -48,6 +48,7 @@ pub fn PuzzleCell<'a>(
     puzzle: &'a Puzzle,
     pos: Pos,
     lines: Signal<HashSet<Dir>>,
+    on_click: impl FnMut(MouseEvent) -> () + 'static,
     on_mousedown: impl FnMut(MouseEvent) -> () + 'static,
     on_mouseenter: impl FnMut(MouseEvent) -> () + 'static,
 ) -> impl IntoView {
@@ -111,6 +112,7 @@ pub fn PuzzleCell<'a>(
                 <div
                     class="absolute inset-0 z-100"
                     class=("cursor-pointer", cell.interactive)
+                    on:click=on_click
                     on:mousedown=on_mousedown
                     on:mouseenter=on_mouseenter
                 />
