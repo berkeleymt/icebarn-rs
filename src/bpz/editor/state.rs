@@ -29,6 +29,33 @@ impl PartialEq for Line {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Lines(HashSet<Line>);
+
+impl Lines {
+    fn contains(&self, p1: Pos, p2: Pos) -> bool {
+        self.0.contains(&Line(p1, p2))
+    }
+
+    fn contains_all(&self, mut pairs: impl Iterator<Item = (Pos, Pos)>) -> bool {
+        pairs.all(|(p1, p2)| self.contains(p1, p2))
+    }
+
+    fn draw(&mut self, p1: Pos, p2: Pos) {
+        self.0.insert(Line(p1, p2));
+    }
+
+    fn erase(&mut self, p1: Pos, p2: Pos) {
+        self.0.remove(&Line(p1, p2));
+    }
+
+    pub fn dirs_for_cell(&self, pos: Pos) -> HashSet<Dir> {
+        Dir::iter()
+            .filter(|&dir| self.contains(pos, pos + dir))
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum DrawState {
     Idle,
@@ -47,19 +74,30 @@ impl Default for DrawState {
 
 #[derive(Debug, Clone, Default)]
 pub struct State {
-    lines: HashSet<Line>,
+    lines: Lines,
     draw_state: DrawState,
+    hovered: Option<Pos>,
 }
 
 impl State {
-    pub fn has_line(&self, p1: Pos, p2: Pos) -> bool {
-        return self.lines.contains(&Line(p1, p2));
+    pub fn lines(&self) -> &Lines {
+        &self.lines
     }
 
-    pub fn for_cell(&self, pos: Pos) -> HashSet<Dir> {
-        Dir::iter()
-            .filter(|&dir| self.has_line(pos, pos + dir))
-            .collect()
+    pub fn preview(&self) -> Lines {
+        if let (
+            DrawState::Clicked(from) | DrawState::ClickedAndHeld { clicked: from, .. },
+            Some(to),
+        ) = (&self.draw_state, self.hovered)
+        {
+            let mut lines = Lines::default();
+            for (p1, p2) in from.line_to(to).into_iter().tuple_windows() {
+                lines.draw(p1, p2);
+            }
+            lines
+        } else {
+            Lines::default()
+        }
     }
 
     pub fn on_click(&mut self, pos: Pos) {
@@ -72,9 +110,18 @@ impl State {
                 self.draw_state = ClickedAndHeld { clicked: pos, held };
             }
             Clicked(from) | ClickedAndHeld { clicked: from, .. } => {
+                let erasing = self
+                    .lines
+                    .contains_all(from.line_to(pos).into_iter().tuple_windows());
+
                 for (p1, p2) in from.line_to(pos).into_iter().tuple_windows() {
-                    self.lines.insert(Line(p1, p2));
+                    if erasing {
+                        self.lines.erase(p1, p2);
+                    } else {
+                        self.lines.draw(p1, p2);
+                    };
                 }
+
                 self.draw_state = Idle;
             }
         };
@@ -96,12 +143,12 @@ impl State {
         use DrawState::*;
         match self.draw_state {
             Idle | Clicked(_) => {}
-            Held(held) | ClickedAndHeld { held, .. } if self.has_line(held, pos) => {
-                self.lines.remove(&Line(held, pos));
+            Held(held) | ClickedAndHeld { held, .. } if self.lines.contains(held, pos) => {
+                self.lines.erase(held, pos);
                 self.draw_state = Erasing { last: pos }
             }
             Held(held) | ClickedAndHeld { held, .. } => {
-                self.lines.insert(Line(held, pos));
+                self.lines.draw(held, pos);
                 self.draw_state = Drawing {
                     visited: vec1![held, pos],
                 };
@@ -110,22 +157,27 @@ impl State {
                 match Vec1::as_slice(&visited) {
                     [] => unreachable!(),
                     &[.., sl, last] if sl == pos => {
-                        self.lines.remove(&Line(last, pos));
+                        self.lines.erase(last, pos);
                         visited.pop().unwrap();
                     }
                     &[.., last] => {
                         for (p1, p2) in last.line_to(pos).into_iter().tuple_windows() {
-                            self.lines.insert(Line(p1, p2));
+                            self.lines.draw(p1, p2);
                             visited.push(p2);
                         }
                     }
                 };
             }
             Erasing { ref mut last } => {
-                self.lines.remove(&Line(*last, pos));
+                self.lines.erase(*last, pos);
                 *last = pos;
             }
         }
+        self.hovered = Some(pos);
+    }
+
+    pub fn on_mouseleave(&mut self, pos: Pos) {
+        self.hovered.take_if(|p| *p == pos);
     }
 
     pub fn on_mouseup(&mut self) {

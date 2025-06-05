@@ -24,6 +24,10 @@ impl Pos {
     }
 
     pub fn line_to(mut self, other: Pos) -> Vec<Pos> {
+        if other.row < self.row {
+            return other.line_to(self);
+        }
+
         let row_dist = (other.row - self.row).abs();
         let row_step = (other.row - self.row).clamp(-1, 1);
         let col_dist = -(other.col - self.col).abs();

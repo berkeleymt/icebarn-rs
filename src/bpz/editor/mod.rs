@@ -1,6 +1,8 @@
 mod cell;
 mod state;
 
+use std::collections::HashMap;
+
 use leptos::{
     ev::{self},
     prelude::*,
@@ -16,8 +18,17 @@ use crate::{
 pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
     let (state, set_state) = signal(State::default());
 
+    let preview = move || state.get().preview();
+
     let render_cell = |pos| {
-        let lines = Memo::new(move |_| state.get().for_cell(pos));
+        let lines = Memo::new(move |_| {
+            let dirs = state.get().lines().dirs_for_cell(pos);
+            let preview_dirs = preview().dirs_for_cell(pos);
+            dirs.into_iter()
+                .map(|dir| (dir, "bg-red-500"))
+                .chain(preview_dirs.into_iter().map(|dir| (dir, "bg-gray-500")))
+                .collect::<HashMap<_, _>>()
+        });
 
         let handle = window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup());
         on_cleanup(move || handle.remove());

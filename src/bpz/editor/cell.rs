@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use leptos::prelude::*;
 
@@ -48,7 +48,7 @@ fn rotate_from_north(dir: Dir) -> &'static str {
 pub fn PuzzleCell<'a>(
     puzzle: &'a Puzzle,
     pos: Pos,
-    #[prop(into)] lines: Signal<HashSet<Dir>>,
+    #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
     set_state: WriteSignal<State>,
 ) -> impl IntoView {
     let mut td_classes = vec!["group w-12 h-12"];
@@ -87,30 +87,34 @@ pub fn PuzzleCell<'a>(
         .collect();
 
     let render_lines = move || -> Vec<_> {
-        lines.get().iter()
-            .map(|&dir| {
-                let classes = [
-                    "absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-1 bg-red-500 origin-bottom",
-                    rotate_from_north(dir)
+        lines
+            .get()
+            .iter()
+            .map(|(&dir, &class)| {
+                let line_classes = [
+                    "absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-1 origin-bottom",
+                    rotate_from_north(dir),
+                    class,
                 ];
+                let square_classes = ["absolute w-1 h-1", class];
                 view! {
-                    <div class=classes.join(" ") />
-                    <div class="absolute w-1 h-1 bg-red-500" />
+                    <div class=line_classes.join(" ") />
+                    <div class=square_classes.join(" ") />
                 }
             })
             .collect()
     };
 
-    let interactive_overlay = cell.interactive.then(|| {
-        view! {
-            <div
-                class="absolute inset-0 z-100 cursor-pointer group-hover:bg-black/10"
-                on:click=move |_| set_state.write().on_click(pos)
-                on:mousedown=move |_| set_state.write().on_mousedown(pos)
-                on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
-            />
-        }
-    });
+    let interactive_overlay = view! {
+        <div
+            class="absolute inset-0 z-100"
+            class=("cursor-pointer group-hover:bg-black/10", cell.interactive)
+            on:click=move |_| set_state.write().on_click(pos)
+            on:mousedown=move |_| set_state.write().on_mousedown(pos)
+            on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
+            on:mouseleave=move |_| set_state.write().on_mouseleave(pos)
+        />
+    };
 
     let text = match cell.text.as_deref() {
         Some(text) => view! { <span class="z-1">{text}</span> }.into_any(),
