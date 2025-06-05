@@ -6,11 +6,9 @@ use leptos::{
     prelude::*,
 };
 
+use self::{cell::PuzzleCell, state::State};
 use crate::{
-    bpz::{
-        editor::{cell::PuzzleCell, state::State},
-        Pos, Puzzle,
-    },
+    bpz::{Pos, Puzzle},
     heroicons::solid::Trash,
 };
 
