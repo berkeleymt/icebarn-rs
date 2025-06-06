@@ -1,11 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use futures::{channel::mpsc, SinkExt, StreamExt};
+use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
 use leptos::{prelude::*, server as leptos_server_fn};
 use server_fn::{codec::MsgPackEncoding, Websocket};
 use web_time::{Duration, SystemTime};
 
-use crate::realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage};
+use crate::{
+    editor::{board::multiplayer::MultiplayerBoard, State},
+    realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage},
+};
 
 mod proto;
 pub mod status;
@@ -17,14 +20,14 @@ const HEARTBEAT_DURATION: Duration = Duration::from_secs(1);
 const TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
-pub struct ClientState {
+pub struct HeartbeatState {
     #[allow(dead_code)]
     last_heartbeat: RwSignal<SystemTime>,
     last_heartbeat_ack: RwSignal<SystemTime>,
     pub is_connected: Signal<bool>,
 }
 
-impl ClientState {
+impl HeartbeatState {
     fn new() -> Self {
         let last_heartbeat = RwSignal::new(SystemTime::now());
         let last_heartbeat_ack = RwSignal::new(SystemTime::UNIX_EPOCH);
@@ -39,27 +42,41 @@ impl ClientState {
         }
     }
 
-    fn recv(&self, message: ServerMessage) -> () {
-        match message {
-            ServerMessage::HeartbeatAck => {
-                *self.last_heartbeat_ack.write() = SystemTime::now();
-            }
-        }
+    fn recv_ack(&self) {
+        *self.last_heartbeat_ack.write() = SystemTime::now();
     }
 }
 
 pub struct Client {
-    pub state: ClientState,
     pub tx: Mutex<mpsc::Sender<Result<ClientMessage>>>,
+    pub heartbeat_state: HeartbeatState,
+    pub editor_state: RwSignal<Option<RwSignal<State<MultiplayerBoard>>>>,
 }
 
 impl Client {
-    fn new() -> (Self, mpsc::Receiver<Result<ClientMessage>>) {
+    fn new() -> (Arc<Self>, mpsc::Receiver<Result<ClientMessage>>) {
         let (tx, rx) = mpsc::channel(1);
-        let client = Self {
-            state: ClientState::new(),
+        let client = Arc::new(Self {
             tx: Mutex::new(tx),
-        };
+            heartbeat_state: HeartbeatState::new(),
+            editor_state: RwSignal::new(None),
+        });
+
+        {
+            let client = client.clone();
+            client
+                .clone()
+                .editor_state
+                .set(Some(RwSignal::new(State::new(MultiplayerBoard::new(
+                    Box::new(move |op| {
+                        let client = client.clone();
+                        leptos::task::spawn_local(async move {
+                            client.send(ClientMessage::Op(op)).await.unwrap()
+                        })
+                    }),
+                )))));
+        }
+
         (client, rx)
     }
 
@@ -77,18 +94,25 @@ impl Client {
     }
 
     async fn send(&self, message: ClientMessage) -> Result<()> {
-        Ok(self.tx.lock().unwrap().send(Ok(message)).await?)
+        Ok(self.tx.lock().await.send(Ok(message)).await?)
     }
 
     async fn recv(&self, message: ServerMessage) -> Result<()> {
-        self.state.recv(message);
+        match message {
+            ServerMessage::HeartbeatAck => {
+                self.heartbeat_state.recv_ack();
+            }
+            ServerMessage::Op(op) => match &*self.editor_state.read() {
+                Some(state) => state.write().board.apply_op(op),
+                None => {}
+            },
+        };
         Ok(())
     }
 }
 
 pub fn provide_client() {
     let (client, rx) = Client::new();
-    let client = Arc::new(client);
 
     if cfg!(feature = "hydrate") {
         // TODO: Remove these unwraps
@@ -113,7 +137,11 @@ pub fn provide_client() {
         }
     }
 
-    provide_context(client);
+    provide_context::<Arc<Client>>(client);
+}
+
+pub fn use_client() -> Option<Arc<Client>> {
+    use_context::<Arc<Client>>()
 }
 
 #[leptos_server_fn(protocol = Websocket<MsgPackEncoding, MsgPackEncoding>)]

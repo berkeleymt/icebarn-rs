@@ -40,7 +40,7 @@ pub fn PuzzleEditor<'a, T: Board>(puzzle: &'a Puzzle, state: RwSignal<State<T>>)
 
     let render_cell = |pos| {
         let lines = Memo::new(move |_| {
-            let dirs = state.read().lines().dirs_for_cell(pos);
+            let dirs = state.read().board.dirs_for_cell(pos);
             let preview_dirs = preview().dirs_for_cell(pos);
             dirs.into_iter()
                 .map(|dir| (dir, "bg-red-500"))

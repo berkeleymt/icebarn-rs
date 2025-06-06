@@ -24,7 +24,7 @@ impl Default for DrawState {
 
 #[derive(Debug, Clone, Default)]
 pub struct State<T: Board> {
-    lines: T,
+    pub board: T,
     draw_state: DrawState,
     hovered: Option<Pos>,
 }
@@ -32,14 +32,10 @@ pub struct State<T: Board> {
 impl<T: Board> State<T> {
     pub fn new(board: T) -> Self {
         Self {
-            lines: board,
+            board,
             draw_state: DrawState::default(),
             hovered: None,
         }
-    }
-
-    pub fn lines(&self) -> &impl Board {
-        &self.lines
     }
 
     pub fn preview(&self) -> SingleplayerBoard {
@@ -69,14 +65,14 @@ impl<T: Board> State<T> {
             }
             Clicked(from) | ClickedAndHeld { clicked: from, .. } => {
                 let erasing = self
-                    .lines
+                    .board
                     .contains_all(from.line_to(pos).into_iter().tuple_windows());
 
                 for (p1, p2) in from.line_to(pos).into_iter().tuple_windows() {
                     if erasing {
-                        self.lines.erase(p1, p2);
+                        self.board.erase(p1, p2);
                     } else {
-                        self.lines.draw(p1, p2);
+                        self.board.draw(p1, p2);
                     };
                 }
 
@@ -101,12 +97,12 @@ impl<T: Board> State<T> {
         use DrawState::*;
         match self.draw_state {
             Idle | Clicked(_) => {}
-            Held(held) | ClickedAndHeld { held, .. } if self.lines.contains(held, pos) => {
-                self.lines.erase(held, pos);
+            Held(held) | ClickedAndHeld { held, .. } if self.board.contains(held, pos) => {
+                self.board.erase(held, pos);
                 self.draw_state = Erasing { last: pos }
             }
             Held(held) | ClickedAndHeld { held, .. } => {
-                self.lines.draw(held, pos);
+                self.board.draw(held, pos);
                 self.draw_state = Drawing {
                     visited: vec1![held, pos],
                 };
@@ -116,18 +112,18 @@ impl<T: Board> State<T> {
                     match Vec1::as_slice(&visited) {
                         [] => unreachable!(),
                         &[.., sl, last] if sl == pos => {
-                            self.lines.erase(last, pos);
+                            self.board.erase(last, pos);
                             visited.pop().unwrap();
                         }
                         &[.., last] => {
-                            self.lines.draw(last, pos);
+                            self.board.draw(last, pos);
                             visited.push(pos);
                         }
                     };
                 }
             }
             Erasing { ref mut last } => {
-                self.lines.erase(*last, pos);
+                self.board.erase(*last, pos);
                 *last = pos;
             }
         }

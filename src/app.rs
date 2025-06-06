@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
@@ -9,8 +9,8 @@ use leptos_router::{
 
 use crate::{
     bpz::Puzzle,
-    editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
-    realtime::{provide_client, status::Status},
+    editor::PuzzleEditor,
+    realtime::{provide_client, status::Status, use_client, Client},
 };
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
@@ -72,17 +72,25 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    let render_puzzle = |puzzle| {
-        let board = SingleplayerBoard::default();
-        let state = RwSignal::new(State::new(board));
-        view! { <PuzzleEditor puzzle=puzzle state=state /> }
+    let client = use_client().expect("Missing realtime client");
+
+    let render_puzzle = |client: Arc<Client>, puzzle| match &*client.editor_state.read() {
+        Some(state) => view! { <PuzzleEditor puzzle=puzzle state=*state /> }.into_any(),
+        None => view! { Loading... }.into_any(),
     };
 
     view! {
         <div class="flex flex-col items-center justify-center p-8 gap-8">
             <Status />
 
-            {PUZZLES.iter().map(|(_, puzzle)| render_puzzle(puzzle)).collect::<Vec<_>>()}
+            {PUZZLES
+                .iter()
+                .take(1)
+                .map(|(_, puzzle)| {
+                    let client = client.clone();
+                    view! { {move || render_puzzle(client.clone(), puzzle)} }
+                })
+                .collect::<Vec<_>>()}
         </div>
     }
 }
