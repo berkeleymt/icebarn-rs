@@ -128,8 +128,7 @@ pub fn PuzzleCell<'a>(
     view! {
         <td class=td_classes.join(" ")>
             <div class=div_classes
-                .join(" ")>
-                {interactive_overlay} {text} {arrows} {render_lines}</div>
+                .join(" ")>{interactive_overlay} {text} {arrows} {render_lines}</div>
         </td>
     }
 }

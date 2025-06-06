@@ -19,9 +19,14 @@ chumsky = { version = "0.10.1", default-features = false, features = ["std"] }
 thiserror = "2.0.12"
 itertools = "0.14.0"
 vec1 = "1.12.1"
+futures = "0.3.31"
+serde = { version = "1.0.219", features = ["derive"] }
+server_fn = { version = "0.8.2", features = ["msgpack"] }
+web-time = "1.1.0"
 
 
 [features]
+default = ["hydrate"]
 hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
 ssr = [
     "dep:axum",

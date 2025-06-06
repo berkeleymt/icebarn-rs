@@ -7,7 +7,13 @@ use leptos_router::{
     StaticSegment,
 };
 
-use crate::{bpz::Puzzle, editor::PuzzleEditor};
+use crate::{
+    bpz::Puzzle,
+    editor::{
+        realtime::{provide_realtime_client, status::Status},
+        PuzzleEditor,
+    },
+};
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
     [
@@ -43,6 +49,9 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
+    // Realtime client
+    provide_realtime_client();
+
     view! {
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
@@ -67,6 +76,8 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     view! {
         <div class="flex flex-col items-center justify-center p-8 gap-8">
+            <Status />
+
             {PUZZLES
                 .iter()
                 .map(|(_, puzzle)| view! { <PuzzleEditor puzzle=puzzle /> })

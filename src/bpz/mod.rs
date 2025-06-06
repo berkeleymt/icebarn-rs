@@ -7,9 +7,10 @@ use std::{
 };
 
 use chumsky::Parser;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Pos {
     pub row: i32,
     pub col: i32,

@@ -1,4 +1,5 @@
 mod cell;
+pub mod realtime;
 mod state;
 
 use std::collections::HashMap;
@@ -11,6 +12,7 @@ use leptos::{
 use self::{cell::PuzzleCell, state::State};
 use crate::{
     bpz::{Pos, Puzzle},
+    components::button::Button,
     heroicons::solid::Trash,
 };
 
@@ -45,14 +47,7 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 .collect::<HashMap<_, _>>()
         });
 
-        view! {
-            <PuzzleCell
-                puzzle=&puzzle
-                pos=pos
-                lines=lines
-                set_state=set_state
-            />
-        }
+        view! { <PuzzleCell puzzle=&puzzle pos=pos lines=lines set_state=set_state /> }
     };
 
     let render_row = |row| {
@@ -71,13 +66,9 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}
             </tbody>
         </table>
-        <button
-            class="inline-flex items-center gap-x-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-            type="button"
-            on:click=move |_| set_state.set(State::default())
-        >
+        <Button {..} type="button" on:click=move |_| set_state.set(State::default())>
             <Trash attr:class="w-4 h-4" />
             "Clear"
-        </button>
+        </Button>
     }
 }

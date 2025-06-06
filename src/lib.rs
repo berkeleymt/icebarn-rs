@@ -1,5 +1,6 @@
 pub mod app;
 pub mod bpz;
+pub mod components;
 pub mod editor;
 pub mod heroicons;
 
