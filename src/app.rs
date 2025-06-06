@@ -9,11 +9,8 @@ use leptos_router::{
 
 use crate::{
     bpz::Puzzle,
-    editor::{
-        board::singleplayer::SingleplayerBoard,
-        realtime::{provide_realtime_client, status::Status},
-        PuzzleEditor, State,
-    },
+    editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
+    realtime::{provide_realtime_client, status::Status},
 };
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {

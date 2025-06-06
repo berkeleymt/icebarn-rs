@@ -3,6 +3,7 @@ pub mod bpz;
 pub mod components;
 pub mod editor;
 pub mod heroicons;
+pub mod realtime;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

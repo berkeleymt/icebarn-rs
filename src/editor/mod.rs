@@ -1,6 +1,5 @@
 pub mod board;
 mod cell;
-pub mod realtime;
 mod state;
 pub use state::State;
 

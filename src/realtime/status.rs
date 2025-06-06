@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::editor::realtime::RealtimeClient;
 use crate::heroicons::solid::{NoSignal, Signal};
+use crate::realtime::RealtimeClient;
 
 #[component]
 pub fn Status() -> impl IntoView {
