@@ -29,7 +29,7 @@ getrandom = "0.2.16"
 
 
 [features]
-default = ["hydrate"]
+default = ["hydrate", "ssr"]
 hydrate = [
     "leptos/hydrate",
     "dep:console_error_panic_hook",

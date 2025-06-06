@@ -10,7 +10,7 @@ use leptos_router::{
 use crate::{
     bpz::Puzzle,
     editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
-    realtime::{provide_realtime_client, status::Status},
+    realtime::{provide_client, status::Status},
 };
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
@@ -48,7 +48,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     // Realtime client
-    provide_realtime_client();
+    provide_client();
 
     view! {
         // injects a stylesheet into the document <head>
@@ -82,10 +82,7 @@ fn HomePage() -> impl IntoView {
         <div class="flex flex-col items-center justify-center p-8 gap-8">
             <Status />
 
-            {PUZZLES
-                .iter()
-                .map(|(_, puzzle)| render_puzzle(puzzle))
-                .collect::<Vec<_>>()}
+            {PUZZLES.iter().map(|(_, puzzle)| render_puzzle(puzzle)).collect::<Vec<_>>()}
         </div>
     }
 }
