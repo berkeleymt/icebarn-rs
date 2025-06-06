@@ -154,19 +154,19 @@ impl State {
                 };
             }
             Drawing { ref mut visited } => {
-                match Vec1::as_slice(&visited) {
-                    [] => unreachable!(),
-                    &[.., sl, last] if sl == pos => {
-                        self.lines.erase(last, pos);
-                        visited.pop().unwrap();
-                    }
-                    &[.., last] => {
-                        for (p1, p2) in last.line_to(pos).into_iter().tuple_windows() {
-                            self.lines.draw(p1, p2);
-                            visited.push(p2);
+                for pos in visited.last().line_to(pos).into_iter().skip(1) {
+                    match Vec1::as_slice(&visited) {
+                        [] => unreachable!(),
+                        &[.., sl, last] if sl == pos => {
+                            self.lines.erase(last, pos);
+                            visited.pop().unwrap();
                         }
-                    }
-                };
+                        &[.., last] => {
+                            self.lines.draw(last, pos);
+                            visited.push(pos);
+                        }
+                    };
+                }
             }
             Erasing { ref mut last } => {
                 self.lines.erase(*last, pos);
