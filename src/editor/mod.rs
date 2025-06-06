@@ -1,3 +1,4 @@
+mod board;
 mod cell;
 pub mod realtime;
 mod state;
@@ -13,12 +14,13 @@ use self::{cell::PuzzleCell, state::State};
 use crate::{
     bpz::{Pos, Puzzle},
     components::button::Button,
+    editor::board::{Board, SingleplayerBoard},
     heroicons::solid::Trash,
 };
 
 #[component]
 pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
-    let (state, set_state) = signal(State::default());
+    let (state, set_state) = signal(State::<SingleplayerBoard>::default());
 
     let preview = move || state.get().preview();
 

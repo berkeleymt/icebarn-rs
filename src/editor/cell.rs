@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use super::state::State;
 use crate::{
     bpz::{Dir, Pos, Puzzle, Shading},
+    editor::board::Board,
     heroicons::solid::ArrowLongUp,
 };
 
@@ -45,11 +46,11 @@ fn rotate_from_north(dir: Dir) -> &'static str {
 }
 
 #[component]
-pub fn PuzzleCell<'a>(
+pub fn PuzzleCell<'a, T: Board>(
     puzzle: &'a Puzzle,
     pos: Pos,
     #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
-    set_state: WriteSignal<State>,
+    set_state: WriteSignal<State<T>>,
 ) -> impl IntoView {
     let mut td_classes = vec!["group w-12 h-12"];
     let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
