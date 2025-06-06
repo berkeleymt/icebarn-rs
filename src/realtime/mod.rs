@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use crdts::CvRDT;
 use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
+use indexmap::IndexMap;
 use leptos::{prelude::*, server as leptos_server_fn};
 use server_fn::{codec::MsgPackEncoding, Websocket};
 use web_time::{Duration, SystemTime};
 
 use crate::{
+    bpz::Puzzle,
     editor::{board::multiplayer::MultiplayerBoard, State},
     realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage},
 };
@@ -51,7 +53,8 @@ impl HeartbeatState {
 pub struct Client {
     pub tx: Mutex<mpsc::Sender<Result<ClientMessage>>>,
     pub heartbeat_state: HeartbeatState,
-    pub editor_state: RwSignal<Option<RwSignal<State<MultiplayerBoard>>>>,
+    pub editor_state:
+        RwSignal<Option<IndexMap<String, (Puzzle, RwSignal<State<MultiplayerBoard>>)>>>,
 }
 
 impl Client {
@@ -62,35 +65,13 @@ impl Client {
             heartbeat_state: HeartbeatState::new(),
             editor_state: RwSignal::new(None),
         });
-
-        {
-            let client = client.clone();
-            let (tx, rx) = mpsc::channel(1000);
-            let board = MultiplayerBoard::new(tx);
-
-            leptos::task::spawn({
-                let client = client.clone();
-                let mut rx = rx;
-                async move {
-                    while let Some(op) = rx.next().await {
-                        client.send(ClientMessage::Op(op)).await.unwrap()
-                    }
-                }
-            });
-
-            client
-                .clone()
-                .editor_state
-                .set(Some(RwSignal::new(State::new(board))));
-        }
-
         (client, rx)
     }
 
-    async fn listen(&self, mut input: ResultStream<ServerMessage>) {
+    async fn listen(self: Arc<Self>, mut input: ResultStream<ServerMessage>) {
         while let Some(message) = input.next().await {
             let result = match message {
-                Ok(message) => self.recv(message).await,
+                Ok(message) => self.clone().recv(message).await,
                 Err(error) => Err(error),
             };
             match result {
@@ -104,19 +85,57 @@ impl Client {
         Ok(self.tx.lock().await.send(Ok(message)).await?)
     }
 
-    async fn recv(&self, message: ServerMessage) -> Result<()> {
+    async fn recv(self: Arc<Self>, message: ServerMessage) -> Result<()> {
         match message {
             ServerMessage::HeartbeatAck => {
                 self.heartbeat_state.recv_ack();
             }
-            ServerMessage::Op(op) => match &*self.editor_state.read_untracked() {
-                Some(state) => state.write().board.state.apply_op(op),
+            ServerMessage::Op(key, op) => match &*self.editor_state.read_untracked() {
+                Some(state) => {
+                    if let Some((_, state)) = state.get(&key) {
+                        state.write().board.state.apply_op(op)
+                    }
+                }
                 None => {}
             },
-            ServerMessage::State(other) => match &*self.editor_state.read_untracked() {
-                Some(state) => state.write().board.state.0.merge(other.0),
+            ServerMessage::State(key, other) => match &*self.editor_state.read_untracked() {
+                Some(state) => {
+                    if let Some((_, state)) = state.get(&key) {
+                        state.write().board.state.0.merge(other.0)
+                    }
+                }
                 None => {}
             },
+            ServerMessage::Init(state) => {
+                let client = self.clone();
+                self.editor_state.set(Some(
+                    state
+                        .into_iter()
+                        .map(move |(key, (puzzle, state))| {
+                            (
+                                key.clone(),
+                                (puzzle, {
+                                    let client = client.clone();
+                                    let (tx, mut rx) = mpsc::channel(1000);
+                                    let mut board = MultiplayerBoard::new(tx);
+                                    board.state.0.merge(state.0);
+
+                                    leptos::task::spawn(async move {
+                                        while let Some(op) = rx.next().await {
+                                            client
+                                                .send(ClientMessage::Op(key.clone(), op))
+                                                .await
+                                                .unwrap()
+                                        }
+                                    });
+
+                                    RwSignal::new(State::new(board))
+                                }),
+                            )
+                        })
+                        .collect(),
+                ));
+            }
         };
         Ok(())
     }

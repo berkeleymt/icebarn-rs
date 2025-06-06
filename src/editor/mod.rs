@@ -19,7 +19,11 @@ use crate::{
 };
 
 #[component]
-pub fn PuzzleEditor<'a, T: Board>(puzzle: &'a Puzzle, state: RwSignal<State<T>>) -> impl IntoView {
+pub fn PuzzleEditor<'a, T: Board>(
+    name: &'a str,
+    puzzle: &'a Puzzle,
+    state: RwSignal<State<T>>,
+) -> impl IntoView {
     let (state, set_state) = state.split();
     let preview = move || state.read().preview();
 
@@ -62,14 +66,17 @@ pub fn PuzzleEditor<'a, T: Board>(puzzle: &'a Puzzle, state: RwSignal<State<T>>)
     };
 
     view! {
-        <table class="select-none">
-            <tbody>
-                {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}
-            </tbody>
-        </table>
-        <Button {..} type="button" on:click=move |_| todo!()>
-            <Trash attr:class="w-4 h-4" />
-            "Clear"
-        </Button>
+        <div class="border border-gray-300 rounded-lg p-4">
+            <h3 class="text-lg font-semibold">{name.to_owned()}</h3>
+            <table class="select-none">
+                <tbody>
+                    {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}
+                </tbody>
+            </table>
+            <Button {..} type="button" on:click=move |_| todo!()>
+                <Trash attr:class="w-4 h-4" />
+                "Clear"
+            </Button>
+        </div>
     }
 }

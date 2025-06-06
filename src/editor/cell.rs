@@ -106,10 +106,15 @@ pub fn PuzzleCell<'a, T: Board>(
             .collect()
     };
 
+    let mut overlay_classes = vec!["absolute inset-0 z-100"];
+
+    if cell.interactive {
+        overlay_classes.push("cursor-pointer group-hover:bg-black/10");
+    }
+
     let interactive_overlay = view! {
         <div
-            class="absolute inset-0 z-100"
-            class=("cursor-pointer group-hover:bg-black/10", cell.interactive)
+            class=overlay_classes.join(" ")
             on:click=move |_| set_state.write().on_click(pos)
             on:mousedown=move |_| set_state.write().on_mousedown(pos)
             on:mouseenter=move |_| set_state.write().on_mouseenter(pos)

@@ -51,7 +51,7 @@ impl Pos {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub enum Dir {
     North,
     South,
@@ -86,7 +86,7 @@ impl Pos {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Shading {
     #[default]
     Default,
@@ -94,7 +94,7 @@ pub enum Shading {
     Removed,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Cell {
     pub shading: Shading,
     pub text: Option<String>,
@@ -130,7 +130,7 @@ impl Cell {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Puzzle {
     pub bl: Pos,
     pub tr: Pos,

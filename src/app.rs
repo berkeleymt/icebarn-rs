@@ -1,5 +1,3 @@
-use std::sync::{Arc, LazyLock};
-
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -8,21 +6,9 @@ use leptos_router::{
 };
 
 use crate::{
-    bpz::Puzzle,
     editor::PuzzleEditor,
-    realtime::{provide_client, status::Status, use_client, Client},
+    realtime::{provide_client, status::Status, use_client},
 };
-
-static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
-    [
-        ("Basic 1", include_str!("../puzzles/basic-1.bpz")),
-        ("Basic 2", include_str!("../puzzles/basic-2.bpz")),
-        ("Basic 3", include_str!("../puzzles/basic-3.bpz")),
-    ]
-    .into_iter()
-    .map(|(name, src)| (name, src.parse().unwrap()))
-    .collect()
-});
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -74,23 +60,21 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     let client = use_client().expect("Missing realtime client");
 
-    let render_puzzle = |client: Arc<Client>, puzzle| match &*client.editor_state.read() {
-        Some(state) => view! { <PuzzleEditor puzzle=puzzle state=*state /> }.into_any(),
+    let render_puzzles = move || match &*client.editor_state.read() {
+        Some(state) => state
+            .iter()
+            .map(|(key, (puzzle, state))| {
+                view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
+            })
+            .collect::<Vec<_>>()
+            .into_any(),
         None => view! { Loading... }.into_any(),
     };
 
     view! {
-        <div class="flex flex-col items-center justify-center p-8 gap-8">
+        <div class="mx-auto flex flex-col w-min justify-center p-8 gap-8">
             <Status />
-
-            {PUZZLES
-                .iter()
-                .take(1)
-                .map(|(_, puzzle)| {
-                    let client = client.clone();
-                    view! { {move || render_puzzle(client.clone(), puzzle)} }
-                })
-                .collect::<Vec<_>>()}
+            {render_puzzles}
         </div>
     }
 }
