@@ -19,22 +19,22 @@ macro_rules! bpz {
 
 static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
     [
-        // bpz!("Basic 1", "../../puzzles/basic-1.bpz"),
-        // bpz!("Basic 2", "../../puzzles/basic-2.bpz"),
-        // bpz!("Basic 3", "../../puzzles/basic-3.bpz"),
-        // bpz!("World Tour 1", "../../puzzles/world-tour-1.bpz"),
-        // bpz!("World Tour 2", "../../puzzles/world-tour-2.bpz"),
-        // bpz!("World Tour 3", "../../puzzles/world-tour-3.bpz"),
+        bpz!("Basic 1", "../../puzzles/basic-1.bpz"),
+        bpz!("Basic 2", "../../puzzles/basic-2.bpz"),
+        bpz!("Basic 3", "../../puzzles/basic-3.bpz"),
+        bpz!("World Tour 1", "../../puzzles/world-tour-1.bpz"),
+        bpz!("World Tour 2", "../../puzzles/world-tour-2.bpz"),
+        bpz!("World Tour 3", "../../puzzles/world-tour-3.bpz"),
         bpz!("Drive-Thru 1", "../../puzzles/drive-thru-1.bpz"),
         bpz!("Drive-Thru 2", "../../puzzles/drive-thru-2.bpz"),
         bpz!("Drive-Thru 3", "../../puzzles/drive-thru-3.bpz"),
-        // bpz!("Black Ice 1", "../../puzzles/black-ice-1.bpz"),
-        // bpz!("Black Ice 2", "../../puzzles/black-ice-2.bpz"),
-        // bpz!("Black Ice 3", "../../puzzles/black-ice-3.bpz"),
-        // bpz!("Challenge 1 (Basic)", "../../puzzles/challenge-1.bpz"),
-        // bpz!("Challenge 2 (World Tour)", "../../puzzles/challenge-2.bpz"),
+        bpz!("Black Ice 1", "../../puzzles/black-ice-1.bpz"),
+        bpz!("Black Ice 2", "../../puzzles/black-ice-2.bpz"),
+        bpz!("Black Ice 3", "../../puzzles/black-ice-3.bpz"),
+        bpz!("Challenge 1 (Basic)", "../../puzzles/challenge-1.bpz"),
+        bpz!("Challenge 2 (World Tour)", "../../puzzles/challenge-2.bpz"),
         bpz!("Challenge 3 (Drive-Thru)", "../../puzzles/challenge-3.bpz"),
-        // bpz!("Challenge 4 (Black Ice)", "../../puzzles/challenge-4.bpz"),
+        bpz!("Challenge 4 (Black Ice)", "../../puzzles/challenge-4.bpz"),
     ]
     .into_iter()
     .map(|(name, src)| {
