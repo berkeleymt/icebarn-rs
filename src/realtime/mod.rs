@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crdts::CvRDT;
 use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
 use leptos::{prelude::*, server as leptos_server_fn};
 use server_fn::{codec::MsgPackEncoding, Websocket};
@@ -108,9 +109,12 @@ impl Client {
             ServerMessage::HeartbeatAck => {
                 self.heartbeat_state.recv_ack();
             }
-            // TODO: Fix non-reactive warning
-            ServerMessage::Op(op) => match &*self.editor_state.read() {
-                Some(state) => state.write().board.apply_op(op),
+            ServerMessage::Op(op) => match &*self.editor_state.read_untracked() {
+                Some(state) => state.write().board.state.apply_op(op),
+                None => {}
+            },
+            ServerMessage::State(other) => match &*self.editor_state.read_untracked() {
+                Some(state) => state.write().board.state.0.merge(other.0),
                 None => {}
             },
         };

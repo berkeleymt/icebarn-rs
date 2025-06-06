@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crdts::{orswot, CmRDT};
 use futures::channel::mpsc;
 use serde::{Deserialize, Serialize};
@@ -18,8 +20,25 @@ impl From<orswot::Op<UnorderedPair<PosOrd>, Uuid>> for Op {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct MultiplayerBoardState(pub orswot::Orswot<UnorderedPair<PosOrd>, Uuid>);
+
+impl Deref for MultiplayerBoardState {
+    type Target = orswot::Orswot<UnorderedPair<PosOrd>, Uuid>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl MultiplayerBoardState {
+    pub fn apply_op(&mut self, op: Op) {
+        self.0.apply(op.0);
+    }
+}
+
 pub struct MultiplayerBoard {
-    inner: orswot::Orswot<UnorderedPair<PosOrd>, Uuid>,
+    pub state: MultiplayerBoardState,
     actor: Uuid,
     tx: mpsc::Sender<Op>,
 }
@@ -27,33 +46,29 @@ pub struct MultiplayerBoard {
 impl MultiplayerBoard {
     pub fn new(tx: mpsc::Sender<Op>) -> Self {
         Self {
-            inner: Default::default(),
+            state: Default::default(),
             actor: Uuid::new_v4(),
             tx,
         }
-    }
-
-    pub fn apply_op(&mut self, op: Op) {
-        self.inner.apply(op.0);
     }
 }
 
 impl Board for MultiplayerBoard {
     fn contains(&self, p1: Pos, p2: Pos) -> bool {
-        self.inner.contains(&UnorderedPair::new(p1, p2)).val
+        self.state.contains(&UnorderedPair::new(p1, p2)).val
     }
 
     fn draw(&mut self, p1: Pos, p2: Pos) {
-        let add_ctx = self.inner.read_ctx().derive_add_ctx(self.actor);
-        let op: Op = self.inner.add(UnorderedPair::new(p1, p2), add_ctx).into();
+        let add_ctx = self.state.read_ctx().derive_add_ctx(self.actor);
+        let op: Op = self.state.add(UnorderedPair::new(p1, p2), add_ctx).into();
         self.tx.try_send(op.clone()).unwrap();
-        self.apply_op(op.clone());
+        self.state.apply_op(op.clone());
     }
 
     fn erase(&mut self, p1: Pos, p2: Pos) {
-        let rm_ctx = self.inner.read_ctx().derive_rm_ctx();
-        let op: Op = self.inner.rm(UnorderedPair::new(p1, p2), rm_ctx).into();
+        let rm_ctx = self.state.read_ctx().derive_rm_ctx();
+        let op: Op = self.state.rm(UnorderedPair::new(p1, p2), rm_ctx).into();
         self.tx.try_send(op.clone()).unwrap();
-        self.apply_op(op.clone());
+        self.state.apply_op(op.clone());
     }
 }

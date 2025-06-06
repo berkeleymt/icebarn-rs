@@ -2,25 +2,34 @@ use std::sync::{Arc, LazyLock, Weak};
 
 use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
 
-use crate::realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage};
+use crate::{
+    editor::board::multiplayer::{MultiplayerBoardState, Op},
+    realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage},
+};
 
 static MAIN_ROOM: LazyLock<Arc<Mutex<Room>>> = LazyLock::new(|| Arc::default());
 
 #[derive(Default)]
 struct Room {
+    state: MultiplayerBoardState,
     clients: Vec<Weak<ClientHandle>>,
 }
 
 impl Room {
-    fn add_client(&mut self, client: Weak<ClientHandle>) {
-        self.clients.push(client);
+    async fn add_client(&mut self, client: Arc<ClientHandle>) -> Result<()> {
+        client
+            .send(ServerMessage::State(self.state.clone()))
+            .await?;
+        self.clients.push(Arc::downgrade(&client));
+        Ok(())
     }
 
-    async fn broadcast(&mut self, message: ServerMessage) -> Result<()> {
+    async fn recv_op(&mut self, op: Op) -> Result<()> {
+        self.state.apply_op(op.clone());
         for client in &self.clients {
             if let Some(client) = client.upgrade() {
                 // TODO: Error handling - what if this fails?
-                client.send(message.clone()).await?
+                client.send(ServerMessage::Op(op.clone())).await?
             }
         }
         Ok(())
@@ -65,11 +74,7 @@ impl ClientHandle {
                 self.send(ServerMessage::HeartbeatAck).await?;
             }
             ClientMessage::Op(op) => {
-                self.room
-                    .lock()
-                    .await
-                    .broadcast(ServerMessage::Op(op))
-                    .await?;
+                self.room.lock().await.recv_op(op).await?;
             }
         };
         Ok(())
@@ -81,8 +86,8 @@ pub async fn connect(input: ResultStream<ClientMessage>) -> Result<ResultStream<
 
     let (client, rx) = ClientHandle::new(room.clone());
     let client = Arc::new(client);
-    tokio::spawn(client.clone().listen(input));
-    room.lock().await.add_client(Arc::downgrade(&client));
+    room.lock().await.add_client(client.clone()).await?;
+    tokio::spawn(client.listen(input));
 
     Ok(rx.into())
 }
