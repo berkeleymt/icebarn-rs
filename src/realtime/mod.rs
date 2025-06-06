@@ -64,17 +64,23 @@ impl Client {
 
         {
             let client = client.clone();
+            let (tx, rx) = mpsc::channel(1000);
+            let board = MultiplayerBoard::new(tx);
+
+            leptos::task::spawn({
+                let client = client.clone();
+                let mut rx = rx;
+                async move {
+                    while let Some(op) = rx.next().await {
+                        client.send(ClientMessage::Op(op)).await.unwrap()
+                    }
+                }
+            });
+
             client
                 .clone()
                 .editor_state
-                .set(Some(RwSignal::new(State::new(MultiplayerBoard::new(
-                    Box::new(move |op| {
-                        let client = client.clone();
-                        leptos::task::spawn_local(async move {
-                            client.send(ClientMessage::Op(op)).await.unwrap()
-                        })
-                    }),
-                )))));
+                .set(Some(RwSignal::new(State::new(board))));
         }
 
         (client, rx)
@@ -102,6 +108,7 @@ impl Client {
             ServerMessage::HeartbeatAck => {
                 self.heartbeat_state.recv_ack();
             }
+            // TODO: Fix non-reactive warning
             ServerMessage::Op(op) => match &*self.editor_state.read() {
                 Some(state) => state.write().board.apply_op(op),
                 None => {}

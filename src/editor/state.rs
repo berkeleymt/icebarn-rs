@@ -98,6 +98,7 @@ impl<T: Board> State<T> {
         match self.draw_state {
             Idle | Clicked(_) => {}
             Held(held) | ClickedAndHeld { held, .. } if self.board.contains(held, pos) => {
+                // TODO: pos and held might not be adjacent here
                 self.board.erase(held, pos);
                 self.draw_state = Erasing { last: pos }
             }

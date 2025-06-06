@@ -1,4 +1,5 @@
 use crdts::{orswot, CmRDT};
+use futures::channel::mpsc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,20 +18,18 @@ impl From<orswot::Op<UnorderedPair<PosOrd>, Uuid>> for Op {
     }
 }
 
-type TransmitFn = Box<dyn Fn(Op) + Send + Sync>;
-
 pub struct MultiplayerBoard {
     inner: orswot::Orswot<UnorderedPair<PosOrd>, Uuid>,
     actor: Uuid,
-    transmit_op: TransmitFn,
+    tx: mpsc::Sender<Op>,
 }
 
 impl MultiplayerBoard {
-    pub fn new(transmit_op: TransmitFn) -> Self {
+    pub fn new(tx: mpsc::Sender<Op>) -> Self {
         Self {
             inner: Default::default(),
             actor: Uuid::new_v4(),
-            transmit_op,
+            tx,
         }
     }
 
@@ -46,15 +45,15 @@ impl Board for MultiplayerBoard {
 
     fn draw(&mut self, p1: Pos, p2: Pos) {
         let add_ctx = self.inner.read_ctx().derive_add_ctx(self.actor);
-        let op = self.inner.add(UnorderedPair::new(p1, p2), add_ctx);
-        self.apply_op(op.clone().into());
-        (self.transmit_op)(op.into());
+        let op: Op = self.inner.add(UnorderedPair::new(p1, p2), add_ctx).into();
+        self.tx.try_send(op.clone()).unwrap();
+        self.apply_op(op.clone());
     }
 
     fn erase(&mut self, p1: Pos, p2: Pos) {
         let rm_ctx = self.inner.read_ctx().derive_rm_ctx();
-        let op = self.inner.rm(UnorderedPair::new(p1, p2), rm_ctx);
-        self.apply_op(op.clone().into());
-        (self.transmit_op)(op.into());
+        let op: Op = self.inner.rm(UnorderedPair::new(p1, p2), rm_ctx).into();
+        self.tx.try_send(op.clone()).unwrap();
+        self.apply_op(op.clone());
     }
 }
