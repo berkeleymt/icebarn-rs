@@ -2,6 +2,7 @@ mod board;
 mod cell;
 pub mod realtime;
 mod state;
+pub use state::State;
 
 use std::collections::HashMap;
 
@@ -10,19 +11,18 @@ use leptos::{
     prelude::*,
 };
 
-use self::{cell::PuzzleCell, state::State};
+use self::cell::PuzzleCell;
 use crate::{
     bpz::{Pos, Puzzle},
     components::button::Button,
-    editor::board::{Board, SingleplayerBoard},
+    editor::board::{singleplayer::SingleplayerBoard, Board},
     heroicons::solid::Trash,
 };
 
 #[component]
 pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
     let (state, set_state) = signal(State::<SingleplayerBoard>::default());
-
-    let preview = move || state.get().preview();
+    let preview = move || state.read().preview();
 
     let handles = [
         window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup()),
@@ -41,7 +41,7 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
 
     let render_cell = |pos| {
         let lines = Memo::new(move |_| {
-            let dirs = state.get().lines().dirs_for_cell(pos);
+            let dirs = state.read().lines().dirs_for_cell(pos);
             let preview_dirs = preview().dirs_for_cell(pos);
             dirs.into_iter()
                 .map(|dir| (dir, "bg-red-500"))

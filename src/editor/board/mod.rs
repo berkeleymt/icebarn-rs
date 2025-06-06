@@ -1,9 +1,10 @@
+pub mod multiplayer;
+pub mod singleplayer;
+mod util;
+
 use std::collections::HashSet;
 
 use crate::bpz::{Dir, Pos};
-
-mod singleplayer;
-pub use singleplayer::*;
 
 pub trait Board: Send + Sync + 'static {
     fn contains(&self, p1: Pos, p2: Pos) -> bool;

@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::bpz::Pos;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct PosOrd {
     pub row: i32,
     pub col: i32,
@@ -12,7 +14,7 @@ impl From<Pos> for PosOrd {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct UnorderedPair<T: Ord>(T, T);
 
 impl<T: Ord> UnorderedPair<T> {

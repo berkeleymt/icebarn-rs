@@ -3,7 +3,7 @@ use vec1::{vec1, Vec1};
 
 use crate::{
     bpz::Pos,
-    editor::board::{Board, SingleplayerBoard},
+    editor::board::{singleplayer::SingleplayerBoard, Board},
 };
 
 #[derive(Debug, Clone)]
@@ -30,6 +30,14 @@ pub struct State<T: Board> {
 }
 
 impl<T: Board> State<T> {
+    pub fn new(board: T) -> Self {
+        Self {
+            lines: board,
+            draw_state: DrawState::default(),
+            hovered: None,
+        }
+    }
+
     pub fn lines(&self) -> &impl Board {
         &self.lines
     }

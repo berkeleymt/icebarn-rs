@@ -23,11 +23,20 @@ futures = "0.3.31"
 serde = { version = "1.0.219", features = ["derive"] }
 server_fn = { version = "0.8.2", features = ["msgpack"] }
 web-time = "1.1.0"
+crdts = "7.3.2"
+uuid = { version = "1.17.0", features = ["serde", "v4"] }
+getrandom = "0.2.16"
 
 
 [features]
 default = ["hydrate"]
-hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
+hydrate = [
+    "leptos/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+    "uuid/js",
+    "getrandom/js",
+]
 ssr = [
     "dep:axum",
     "dep:tokio",

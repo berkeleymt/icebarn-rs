@@ -89,7 +89,7 @@ pub fn PuzzleCell<'a, T: Board>(
 
     let render_lines = move || -> Vec<_> {
         lines
-            .get()
+            .read()
             .iter()
             .map(|(&dir, &class)| {
                 let line_classes = [
