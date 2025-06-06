@@ -24,7 +24,6 @@ const TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
 pub struct HeartbeatState {
-    #[allow(dead_code)]
     last_heartbeat: RwSignal<SystemTime>,
     last_heartbeat_ack: RwSignal<SystemTime>,
     pub is_connected: Signal<bool>,
@@ -157,6 +156,7 @@ pub fn provide_client() {
             let client = client.clone();
             let heartbeat = move || {
                 let client = client.clone();
+                client.heartbeat_state.last_heartbeat.set(SystemTime::now());
                 leptos::task::spawn_local(async move {
                     client.clone().send(ClientMessage::Heartbeat).await.unwrap()
                 })

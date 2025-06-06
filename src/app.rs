@@ -60,20 +60,24 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     let client = use_client().expect("Missing realtime client");
 
-    let render_puzzles = move || match &*client.editor_state.read() {
-        Some(state) => state
+    let render_puzzles = move || match (
+        client.heartbeat_state.is_connected.get(),
+        &*client.editor_state.read(),
+    ) {
+        (true, Some(state)) => state
             .iter()
             .map(|(key, (puzzle, state))| {
                 view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
             })
             .collect::<Vec<_>>()
             .into_any(),
-        None => view! { Loading... }.into_any(),
+        (true, None) => view! { "Loading puzzles..." }.into_any(),
+        _ => view! {}.into_any(),
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-min justify-center p-8 gap-8">
-            <Status />
+        <div class="mx-auto flex flex-col w-min min-w-128 justify-center p-8 gap-8">
+            <Status {..} class="self-center" />
             {render_puzzles}
         </div>
     }
