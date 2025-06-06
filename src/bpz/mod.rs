@@ -7,6 +7,7 @@ use std::{
 };
 
 use chumsky::Parser;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -95,11 +96,18 @@ pub enum Shading {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Portal {
+    pub start: Pos,
+    pub end: Pos,
+    pub nticks: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Cell {
     pub shading: Shading,
     pub text: Option<String>,
     pub arrows: HashSet<Dir>,
-    pub interactive: bool,
+    pub portals: HashMap<Dir, u32>,
 }
 
 impl Default for Cell {
@@ -108,7 +116,7 @@ impl Default for Cell {
             shading: Shading::default(),
             text: Option::default(),
             arrows: HashSet::default(),
-            interactive: true,
+            portals: HashMap::default(),
         }
     }
 }
@@ -128,12 +136,23 @@ impl Cell {
         self.arrows.insert(dir);
         self
     }
+
+    pub fn insert_portal(&mut self, dir: Dir, nticks: u32) -> &mut Self {
+        // TODO: It's weird to store only nticks
+        self.portals.insert(dir, nticks);
+        self
+    }
+
+    pub fn interactive(&self) -> bool {
+        return self.text.is_some() || self.shading != Shading::Removed || !self.portals.is_empty();
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Puzzle {
     pub bl: Pos,
     pub tr: Pos,
+    pub portals: Vec<Portal>,
     default_cell: Cell,
     cells: HashMap<Pos, Cell>,
 }
@@ -141,7 +160,7 @@ pub struct Puzzle {
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("parse error")]
-    ParseError,
+    ParseError(String),
 
     #[error("build error")]
     BuildError(#[from] parser::BuildError),
@@ -151,10 +170,13 @@ impl FromStr for Puzzle {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let instrs = parser::parser()
-            .parse(s)
-            .into_result()
-            .map_err(|_| ParseError::ParseError)?;
+        let instrs = parser::parser().parse(s).into_result().map_err(|err| {
+            ParseError::ParseError(
+                err.iter()
+                    .map(|err| format!("{}: {}", err.span(), err.reason()))
+                    .join("; "),
+            )
+        })?;
         Ok(parser::build(instrs)?)
     }
 }

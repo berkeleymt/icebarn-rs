@@ -2,46 +2,45 @@ use std::collections::HashMap;
 
 use leptos::prelude::*;
 
-use super::state::State;
+use super::{board::Board, state::State, util::rotate_from_north};
 use crate::{
     bpz::{Dir, Pos, Puzzle, Shading},
-    editor::board::Board,
     heroicons::solid::ArrowLongUp,
 };
 
-fn boundary_border(dir: Dir) -> (&'static str, &'static str) {
+fn boundary_border(dir: Dir) -> (String, &'static str) {
     match dir {
-        Dir::North => ("border-t-3", "-mt-[1.5px]"),
-        Dir::South => ("border-b-3", "-mb-[1.5px]"),
-        Dir::East => ("border-r-3", "-mr-[1.5px]"),
-        Dir::West => ("border-l-3", "-ml-[1.5px]"),
+        Dir::North => ("border-t-3".to_owned(), "-mt-[1.5px]"),
+        Dir::South => ("border-b-3".to_owned(), "-mb-[1.5px]"),
+        Dir::East => ("border-r-3".to_owned(), "-mr-[1.5px]"),
+        Dir::West => ("border-l-3".to_owned(), "-ml-[1.5px]"),
     }
 }
 
-fn icebarn_border(dir: Dir) -> (&'static str, &'static str) {
+fn icebarn_border(dir: Dir) -> (String, &'static str) {
     match dir {
-        Dir::North => ("border-t-2", "-mt-[1px]"),
-        Dir::South => ("border-b-2", "-mb-[1px]"),
-        Dir::East => ("border-r-2", "-mr-[1px]"),
-        Dir::West => ("border-l-2", "-ml-[1px]"),
+        Dir::North => ("border-t-2".to_owned(), "-mt-[1px]"),
+        Dir::South => ("border-b-2".to_owned(), "-mb-[1px]"),
+        Dir::East => ("border-r-2".to_owned(), "-mr-[1px]"),
+        Dir::West => ("border-l-2".to_owned(), "-ml-[1px]"),
     }
 }
 
-fn default_border(dir: Dir) -> (&'static str, &'static str) {
+fn portal_border(dir: Dir, nticks: u32) -> (String, &'static str) {
     match dir {
-        Dir::North => ("border-t border-t-gray-400", "-mt-[0.5px]"),
-        Dir::South => ("border-b border-b-gray-400", "-mb-[0.5px]"),
-        Dir::East => ("border-r border-r-gray-400", "-mr-[0.5px]"),
-        Dir::West => ("border-l border-l-gray-400", "-ml-[0.5px]"),
+        Dir::North => (format!("border-t-6 portal-t-{}", nticks), "-mt-[3px]"),
+        Dir::South => (format!("border-b-6 portal-b-{}", nticks), "-mb-[3px]"),
+        Dir::East => (format!("border-r-6 portal-r-{}", nticks), "-mr-[3px]"),
+        Dir::West => (format!("border-l-6 portal-l-{}", nticks), "-ml-[3px]"),
     }
 }
 
-fn rotate_from_north(dir: Dir) -> &'static str {
+fn default_border(dir: Dir) -> (String, &'static str) {
     match dir {
-        Dir::North => "",
-        Dir::South => "rotate-180",
-        Dir::East => "rotate-90",
-        Dir::West => "rotate-270",
+        Dir::North => ("border-t border-t-gray-400".to_owned(), "-mt-[0.5px]"),
+        Dir::South => ("border-b border-b-gray-400".to_owned(), "-mb-[0.5px]"),
+        Dir::East => ("border-r border-r-gray-400".to_owned(), "-mr-[0.5px]"),
+        Dir::West => ("border-l border-l-gray-400".to_owned(), "-ml-[0.5px]"),
     }
 }
 
@@ -52,22 +51,25 @@ pub fn PuzzleCell<'a, T: Board>(
     #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
     set_state: WriteSignal<State<T>>,
 ) -> impl IntoView {
-    let mut td_classes = vec!["group w-12 h-12"];
+    let mut td_classes = vec!["group w-12 h-12".to_owned()];
     let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
 
-    let cell = puzzle.get_cell(pos);
+    let cell = puzzle.get_cell(pos).clone();
 
     if cell.shading == Shading::Icebarn {
-        td_classes.push("bg-blue-200");
+        td_classes.push("bg-blue-200".to_owned());
     }
 
     for dir in Dir::iter() {
         use Shading::*;
-        let (td_class, div_class) = match (cell.shading, puzzle.get_cell(pos + dir).shading) {
-            (Icebarn, Default) | (Default, Icebarn) => icebarn_border(dir),
-            (Default | Icebarn, Removed) | (Removed, Default | Icebarn) => boundary_border(dir),
-            (Removed, Removed) => ("", ""),
-            _ => default_border(dir),
+        let (td_class, div_class) = match cell.portals.get(&dir) {
+            Some(&portal) => portal_border(dir, portal),
+            None => match (cell.shading, puzzle.get_cell(pos + dir).shading) {
+                (Icebarn, Default) | (Default, Icebarn) => icebarn_border(dir),
+                (Default | Icebarn, Removed) | (Removed, Default | Icebarn) => boundary_border(dir),
+                (Removed, Removed) => ("".to_owned(), ""),
+                _ => default_border(dir),
+            },
         };
         td_classes.push(td_class);
         div_classes.push(div_class);
@@ -87,28 +89,9 @@ pub fn PuzzleCell<'a, T: Board>(
         })
         .collect();
 
-    let render_lines = move || -> Vec<_> {
-        lines
-            .read()
-            .iter()
-            .map(|(&dir, &class)| {
-                let line_classes = [
-                    "absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-1 origin-bottom",
-                    rotate_from_north(dir),
-                    class,
-                ];
-                let square_classes = ["absolute w-1 h-1", class];
-                view! {
-                    <div class=line_classes.join(" ") />
-                    <div class=square_classes.join(" ") />
-                }
-            })
-            .collect()
-    };
-
     let mut overlay_classes = vec!["absolute inset-0 z-100"];
 
-    if cell.interactive {
+    if cell.interactive() {
         overlay_classes.push("cursor-pointer group-hover:bg-black/10");
     }
 
@@ -124,11 +107,35 @@ pub fn PuzzleCell<'a, T: Board>(
 
     let text = match cell.text.as_deref() {
         Some(text) => view! { <span class="z-1">{text}</span> }.into_any(),
-        None if cell.interactive => {
+        None if cell.shading != Shading::Removed => {
             view! { <div class="w-1 h-1 bg-gray-400 group-hover:bg-black rounded-full" /> }
                 .into_any()
         }
         None => view!().into_any(),
+    };
+
+    let render_lines = move || -> Vec<_> {
+        lines
+            .read()
+            .iter()
+            .map(|(&dir, &class)| {
+                // TODO: Maybe a better way to do this
+                let mut line_classes = vec![
+                    "absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-1 origin-bottom",
+                    rotate_from_north(dir),
+                    class,
+                ];
+                let mut square_classes = vec!["absolute w-1 h-1", class];
+                if cell.portals.contains_key(&dir) && cell.shading == Shading::Removed {
+                    line_classes.push("hidden");
+                    square_classes.push("hidden");
+                };
+                view! {
+                    <div class=line_classes.join(" ") />
+                    <div class=square_classes.join(" ") />
+                }
+            })
+            .collect()
     };
 
     view! {

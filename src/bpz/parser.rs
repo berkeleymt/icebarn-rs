@@ -5,7 +5,7 @@ use chumsky::{text::inline_whitespace, Parser};
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::bpz::{Cell, Dir, Pos, Puzzle, Shading};
+use crate::bpz::{Cell, Dir, Portal, Pos, Puzzle, Shading};
 
 #[derive(Debug, Clone)]
 pub enum Instr {
@@ -16,24 +16,14 @@ pub enum Instr {
     SetIn(Pos, Dir),
     SetOut(Pos, Dir),
     SetShading(Pos, Shading),
-    RectSetShading {
-        bl: Pos,
-        tr: Pos,
-        shading: Shading,
-    },
+    RectSetShading { bl: Pos, tr: Pos, shading: Shading },
     SetText(Pos, String),
     AddArrow(Pos, Dir),
-    #[allow(dead_code)]
-    AddPortal {
-        start: Pos,
-        end: Pos,
-        nticks: u32,
-    },
-    Path(#[allow(dead_code)] Vec<Pos>),
+    AddPortal(Portal),
     Noop,
 }
 
-fn int<'a>() -> impl Parser<'a, &'a str, i32> {
+fn int<'a>() -> impl Parser<'a, &'a str, i32, extra::Err<Rich<'a, char>>> {
     just('-')
         .or_not()
         .then(text::int(10))
@@ -41,18 +31,18 @@ fn int<'a>() -> impl Parser<'a, &'a str, i32> {
         .map(|s: &str| s.parse().unwrap())
 }
 
-fn uint<'a>() -> impl Parser<'a, &'a str, u32> {
+fn uint<'a>() -> impl Parser<'a, &'a str, u32, extra::Err<Rich<'a, char>>> {
     text::int(10).to_slice().map(|s: &str| s.parse().unwrap())
 }
 
-fn pos<'a>() -> impl Parser<'a, &'a str, Pos> {
+fn pos<'a>() -> impl Parser<'a, &'a str, Pos, extra::Err<Rich<'a, char>>> {
     int()
         .then_ignore(just(','))
         .then(int())
         .map(|(col, row)| Pos { row, col })
 }
 
-fn dir<'a>() -> impl Parser<'a, &'a str, Dir> {
+fn dir<'a>() -> impl Parser<'a, &'a str, Dir, extra::Err<Rich<'a, char>>> {
     choice((
         just("NORTH").or(just("UP")).to(Dir::North),
         just("SOUTH").or(just("DOWN")).to(Dir::South),
@@ -61,14 +51,14 @@ fn dir<'a>() -> impl Parser<'a, &'a str, Dir> {
     ))
 }
 
-fn shading<'a>() -> impl Parser<'a, &'a str, Shading> {
+fn shading<'a>() -> impl Parser<'a, &'a str, Shading, extra::Err<Rich<'a, char>>> {
     choice((
         just("ICEBARN").to(Shading::Icebarn),
-        just("REMOVED").to(Shading::Removed),
+        just("REMOVE").to(Shading::Removed),
     ))
 }
 
-pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>> {
+pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>, extra::Err<Rich<'a, char>>> {
     let recovery = none_of('\n').repeated();
 
     choice((
@@ -112,6 +102,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>> {
         pos()
             .then_ignore(inline_whitespace())
             .then_ignore(just("HOLE"))
+            .then_ignore(inline_whitespace())
             .then(text::int(10))
             .map(|(pos, text)| Instr::SetText(pos, text.to_owned())),
         pos()
@@ -120,10 +111,19 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>> {
             .then_ignore(inline_whitespace())
             .then(dir())
             .map(|(pos, dir)| Instr::AddArrow(pos, dir)),
+        just("PORTAL")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .then_ignore(inline_whitespace())
+            .then(pos())
+            .then_ignore(inline_whitespace())
+            .then(uint())
+            .map(|((end, start), nticks)| Portal { start, end, nticks })
+            .map(Instr::AddPortal),
         just("PATH")
             .then(inline_whitespace())
-            .ignore_then(pos().separated_by(inline_whitespace()).collect())
-            .map(Instr::Path),
+            .then(none_of('\n').repeated())
+            .to(Instr::Noop),
         just("").to(Instr::Noop),
     ))
     .padded_by(inline_whitespace())
@@ -146,6 +146,7 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
     let mut width = None;
     let mut height = None;
     let mut cells: HashMap<Pos, Cell> = HashMap::new();
+    let mut portals = vec![];
 
     for instr in instrs {
         match instr {
@@ -188,8 +189,54 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
             Instr::AddArrow(pos, dir) => {
                 cells.entry(pos).or_default().insert_arrow(dir);
             }
-            Instr::AddPortal { .. } => todo!(),
-            Instr::Path(_) => {}
+            Instr::AddPortal(portal @ Portal { start, end, nticks }) => {
+                portals.push(portal);
+
+                // TODO: Refactor this code
+                if start.row == end.row {
+                    let min_col = start.col.min(end.col);
+                    let max_col = start.col.max(end.col);
+                    for col in min_col..max_col {
+                        let pos = Pos {
+                            row: start.row,
+                            col,
+                        };
+                        cells
+                            .entry(pos)
+                            .or_default()
+                            .insert_portal(Dir::South, nticks);
+                        let pos = Pos {
+                            row: start.row - 1,
+                            col,
+                        };
+                        cells
+                            .entry(pos)
+                            .or_default()
+                            .insert_portal(Dir::North, nticks);
+                    }
+                } else if start.col == end.col {
+                    let min_row = start.row.min(end.row);
+                    let max_row = start.row.max(end.row);
+                    for row in min_row..max_row {
+                        let pos = Pos {
+                            row,
+                            col: start.col,
+                        };
+                        cells
+                            .entry(pos)
+                            .or_default()
+                            .insert_portal(Dir::West, nticks);
+                        let pos = Pos {
+                            row,
+                            col: start.col - 1,
+                        };
+                        cells
+                            .entry(pos)
+                            .or_default()
+                            .insert_portal(Dir::East, nticks);
+                    }
+                }
+            }
             Instr::Noop => {}
         }
     }
@@ -207,11 +254,10 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
             .into_iter()
             .cartesian_product(-2..=width + 1),
     ) {
-        let entry = cells
+        cells
             .entry(Pos { row, col })
             .or_default()
             .set_shading(Shading::Removed);
-        entry.interactive = matches!(entry.text, Some(_));
     }
 
     Ok(Puzzle {
@@ -222,5 +268,6 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
         },
         default_cell: Default::default(),
         cells,
+        portals,
     })
 }

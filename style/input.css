@@ -1,1 +1,174 @@
 @import "tailwindcss";
+
+/* TODO: Figure out a better way to do this */
+
+:root {
+    --portal-1-color: var(--color-yellow-400);
+    --portal-2-color: var(--color-green-400);
+    --portal-3-color: var(--color-purple-400);
+    --portal-4-color: var(--color-pink-400);
+    --portal-5-color: var(--color-orange-400);
+    --portal-6-color: var(--color-lime-400);
+    --portal-7-color: var(--color-cyan-400);
+    --portal-8-color: var(--color-indigo-400);
+}
+
+.portal-1-text {
+    color: var(--portal-1-color);
+}
+
+.portal-2-text {
+    color: var(--portal-2-color);
+}
+
+.portal-3-text {
+    color: var(--portal-3-color);
+}
+
+.portal-4-text {
+    color: var(--portal-4-color);
+}
+
+.portal-5-text {
+    color: var(--portal-5-color);
+}
+
+.portal-6-text {
+    color: var(--portal-6-color);
+}
+
+.portal-7-text {
+    color: var(--portal-7-color);
+}
+
+.portal-8-text {
+    color: var(--portal-8-color);
+}
+
+.portal-t-1 {
+    border-top-color: var(--portal-1-color);
+}
+
+.portal-t-2 {
+    border-top-color: var(--portal-2-color);
+}
+
+.portal-t-3 {
+    border-top-color: var(--portal-3-color);
+}
+
+.portal-t-4 {
+    border-top-color: var(--portal-4-color);
+}
+
+.portal-t-5 {
+    border-top-color: var(--portal-5-color);
+}
+
+.portal-t-6 {
+    border-top-color: var(--portal-6-color);
+}
+
+.portal-t-7 {
+    border-top-color: var(--portal-7-color);
+}
+
+.portal-t-8 {
+    border-top-color: var(--portal-8-color);
+}
+
+.portal-b-1 {
+    border-bottom-color: var(--portal-1-color);
+}
+
+.portal-b-2 {
+    border-bottom-color: var(--portal-2-color);
+}
+
+.portal-b-3 {
+    border-bottom-color: var(--portal-3-color);
+}
+
+.portal-b-4 {
+    border-bottom-color: var(--portal-4-color);
+}
+
+.portal-b-5 {
+    border-bottom-color: var(--portal-5-color);
+}
+
+.portal-b-6 {
+    border-bottom-color: var(--portal-6-color);
+}
+
+.portal-b-7 {
+    border-bottom-color: var(--portal-7-color);
+}
+
+.portal-b-8 {
+    border-bottom-color: var(--portal-8-color);
+}
+
+.portal-l-1 {
+    border-left-color: var(--portal-1-color);
+}
+
+.portal-l-2 {
+    border-left-color: var(--portal-2-color);
+}
+
+.portal-l-3 {
+    border-left-color: var(--portal-3-color);
+}
+
+.portal-l-4 {
+    border-left-color: var(--portal-4-color);
+}
+
+.portal-l-5 {
+    border-left-color: var(--portal-5-color);
+}
+
+.portal-l-6 {
+    border-left-color: var(--portal-6-color);
+}
+
+.portal-l-7 {
+    border-left-color: var(--portal-7-color);
+}
+
+.portal-l-8 {
+    border-left-color: var(--portal-8-color);
+}
+
+.portal-r-1 {
+    border-right-color: var(--portal-1-color);
+}
+
+.portal-r-2 {
+    border-right-color: var(--portal-2-color);
+}
+
+.portal-r-3 {
+    border-right-color: var(--portal-3-color);
+}
+
+.portal-r-4 {
+    border-right-color: var(--portal-4-color);
+}
+
+.portal-r-5 {
+    border-right-color: var(--portal-5-color);
+}
+
+.portal-r-6 {
+    border-right-color: var(--portal-6-color);
+}
+
+.portal-r-7 {
+    border-right-color: var(--portal-7-color);
+}
+
+.portal-r-8 {
+    border-right-color: var(--portal-8-color);
+}
