@@ -10,8 +10,9 @@ use leptos_router::{
 use crate::{
     bpz::Puzzle,
     editor::{
+        board::singleplayer::SingleplayerBoard,
         realtime::{provide_realtime_client, status::Status},
-        PuzzleEditor,
+        PuzzleEditor, State,
     },
 };
 
@@ -74,13 +75,19 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
+    let render_puzzle = |puzzle| {
+        let board = SingleplayerBoard::default();
+        let state = RwSignal::new(State::new(board));
+        view! { <PuzzleEditor puzzle=puzzle state=state /> }
+    };
+
     view! {
         <div class="flex flex-col items-center justify-center p-8 gap-8">
             <Status />
 
             {PUZZLES
                 .iter()
-                .map(|(_, puzzle)| view! { <PuzzleEditor puzzle=puzzle /> })
+                .map(|(_, puzzle)| render_puzzle(puzzle))
                 .collect::<Vec<_>>()}
         </div>
     }

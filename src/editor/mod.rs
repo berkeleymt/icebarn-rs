@@ -1,4 +1,4 @@
-mod board;
+pub mod board;
 mod cell;
 pub mod realtime;
 mod state;
@@ -15,13 +15,13 @@ use self::cell::PuzzleCell;
 use crate::{
     bpz::{Pos, Puzzle},
     components::button::Button,
-    editor::board::{singleplayer::SingleplayerBoard, Board},
+    editor::board::Board,
     heroicons::solid::Trash,
 };
 
 #[component]
-pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
-    let (state, set_state) = signal(State::<SingleplayerBoard>::default());
+pub fn PuzzleEditor<'a, T: Board>(puzzle: &'a Puzzle, state: RwSignal<State<T>>) -> impl IntoView {
+    let (state, set_state) = state.split();
     let preview = move || state.read().preview();
 
     let handles = [
@@ -68,7 +68,7 @@ pub fn PuzzleEditor<'a>(puzzle: &'a Puzzle) -> impl IntoView {
                 {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}
             </tbody>
         </table>
-        <Button {..} type="button" on:click=move |_| set_state.set(State::default())>
+        <Button {..} type="button" on:click=move |_| todo!()>
             <Trash attr:class="w-4 h-4" />
             "Clear"
         </Button>
