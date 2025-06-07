@@ -21,4 +21,8 @@ impl Board for SingleplayerBoard {
     fn erase(&mut self, p1: Pos, p2: Pos) {
         self.0.remove(&UnorderedPair::new(p1, p2));
     }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
 }

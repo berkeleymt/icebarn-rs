@@ -4,7 +4,7 @@ mod state;
 mod util;
 pub use state::State;
 
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::HashMap, time::Duration};
 
 use leptos::{
     ev::{self},
@@ -26,6 +26,17 @@ pub fn PuzzleEditor<'a, T: Board>(
 ) -> impl IntoView {
     let (state, set_state) = state.split();
     let preview = move || state.read().preview();
+    let (clearing, set_clearing) = signal(false);
+
+    let clear = move |_| {
+        set_clearing.set(true);
+        set_timeout(move || set_clearing.set(false), Duration::from_secs(2));
+    };
+
+    let confirm_clear = move |_| {
+        set_state.write().board.clear();
+        set_clearing.set(false);
+    };
 
     let handles = [
         window_event_listener(ev::mouseup, move |_| set_state.write().on_mouseup()),
@@ -124,10 +135,21 @@ pub fn PuzzleEditor<'a, T: Board>(
                 </table>
                 {portals}
             </div>
-            <Button {..} type="button" on:click=move |_| todo!()>
-                <Trash attr:class="w-4 h-4" />
-                "Clear"
-            </Button>
+            {move || if clearing.get() {
+                view! {
+                    <Button {..} type="button" on:click=confirm_clear>
+                        <Trash attr:class="w-4 h-4" />
+                        "Click again to confirm"
+                    </Button>
+                }.into_any()
+            } else {
+                view! {
+                    <Button {..} type="button" on:click=clear>
+                        <Trash attr:class="w-4 h-4" />
+                        "Clear"
+                    </Button>
+                }.into_any()
+            } }
         </div>
     }
 }

@@ -108,22 +108,9 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
 fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
     let client = connect_client(room);
 
-    let render_puzzles = {
+    let ready = {
         let client = client.clone();
-        move || match (
-            client.heartbeat_state.is_connected.get(),
-            &*client.editor_state.read(),
-        ) {
-            (true, Some(state)) => state
-                .iter()
-                .map(|(key, (puzzle, state))| {
-                    view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
-                })
-                .collect::<Vec<_>>()
-                .into_any(),
-            (true, None) => view! { "Loading puzzles..." }.into_any(),
-            _ => view! {}.into_any(),
-        }
+        move || client.heartbeat_state.is_connected.get() && client.editor_state.read().is_some()
     };
 
     let status = {
@@ -163,7 +150,20 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
                 <div class="flex-1" />
                 <Button {..} on:click=leave_room>Leave Room</Button>
             </div>
-            {render_puzzles}
+            <Show when={ready}>
+                {if let Some(state) = &*client.editor_state.read() {
+                    state
+                    .iter()
+                    .map(|(key, (puzzle, state))| {
+                        view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
+                    })
+                    .collect::<Vec<_>>()
+                    .into_any()
+                } else {
+                        view! { "Something weird occurred. If this persists, try reloading the page." }.into_any()
+                    }
+                }
+            </Show>
         </div>
     }
 }

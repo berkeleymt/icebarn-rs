@@ -71,4 +71,15 @@ impl Board for MultiplayerBoard {
         self.tx.try_send(op.clone()).unwrap();
         self.state.apply_op(op.clone());
     }
+
+    fn clear(&mut self) {
+        let rm_ctx = self.state.read_ctx().derive_rm_ctx();
+        let op: Op = self
+            .state
+            .0
+            .rm_all(self.state.iter().map(|a| a.val.clone()), rm_ctx)
+            .into();
+        self.tx.try_send(op.clone()).unwrap();
+        self.state.apply_op(op.clone());
+    }
 }

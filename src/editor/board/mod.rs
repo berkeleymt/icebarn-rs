@@ -10,6 +10,7 @@ pub trait Board: Send + Sync + 'static {
     fn contains(&self, p1: Pos, p2: Pos) -> bool;
     fn draw(&mut self, p1: Pos, p2: Pos);
     fn erase(&mut self, p1: Pos, p2: Pos);
+    fn clear(&mut self);
 
     fn contains_all(&self, mut pairs: impl Iterator<Item = (Pos, Pos)>) -> bool {
         pairs.all(|(p1, p2)| self.contains(p1, p2))
