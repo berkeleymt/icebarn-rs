@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 
+@media print {
+    div {
+        break-inside: avoid;
+    }
+}
+
 .marked:is(:where(.group):hover *) {
     background-image: repeating-linear-gradient(
         45deg,
