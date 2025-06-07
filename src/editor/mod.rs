@@ -14,7 +14,7 @@ use leptos::{
 use self::{board::Board, cell::PuzzleCell, util::rotate_from_north};
 use crate::{
     bpz::{Dir, Pos, Puzzle},
-    components::button::Button,
+    components::button::{Button, ButtonColor},
     heroicons::solid::{ExclamationTriangle, Trash},
 };
 
@@ -140,7 +140,7 @@ pub fn PuzzleEditor<'a, T: Board>(
             {move || {
                 if clearing.get() {
                     view! {
-                        <Button {..} type="button" on:click=confirm_clear>
+                        <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
                             <Trash attr:class="w-4 h-4" />
                             "Click again to confirm"
                         </Button>
@@ -148,7 +148,7 @@ pub fn PuzzleEditor<'a, T: Board>(
                         .into_any()
                 } else {
                     view! {
-                        <Button {..} type="button" on:click=clear>
+                        <Button color={ButtonColor::Warning} {..} type="button" on:click=clear>
                             <Trash attr:class="w-4 h-4" />
                             "Clear"
                         </Button>
