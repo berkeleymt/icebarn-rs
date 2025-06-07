@@ -50,7 +50,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/icebarn-rs.css" />
 
         // sets the document title
-        <Title text="BmMT 2025 Online Puzzle Round" />
+        <Title text="[DEMO] BmMT 2025 Online Puzzle Round" />
 
         // content for this welcome page
         <Router>
@@ -157,7 +157,7 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
+        <div class="mx-auto flex flex-col w-min min-w-4xl justify-center p-8 gap-8">
             <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
                 {status} <div class="flex-1" /> <Button {..} on:click=leave_room>
                     Leave Room
@@ -197,7 +197,7 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
+        <div class="mx-auto flex flex-col w-min min-w-4xl justify-center p-8 gap-8">
             <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
                 "Singleplayer mode" <div class="flex-1" /> <Button {..} on:click=leave_room>
                     Close and Delete Game
