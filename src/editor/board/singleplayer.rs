@@ -24,6 +24,7 @@ impl Board for SingleplayerBoard {
 
     fn clear(&mut self) {
         self.0.clear();
+        self.1.clear();
     }
 
     fn marked(&self, p: Pos) -> bool {
