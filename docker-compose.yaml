@@ -1,0 +1,17 @@
+# NB: This file is for development purposes only!
+# Please have proper security for production.
+
+name: icebarn-rs
+
+services:
+  db:
+    image: postgres:16.2
+    restart: always
+    environment:
+      POSTGRES_USER: icebarn
+      POSTGRES_PASSWORD: icebarn
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

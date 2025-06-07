@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, LazyLock, Weak},
+    sync::{Arc, OnceLock, Weak},
 };
 
 use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
 use indexmap::IndexMap;
+use leptos::prelude::use_context;
+use sqlx::PgPool;
 
 use crate::{
     bpz::Puzzle,
@@ -13,21 +15,97 @@ use crate::{
     realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage},
 };
 
-static ROOMS: LazyLock<HashMap<String, Arc<Mutex<Room>>>> = LazyLock::new(|| {
-    let mut rooms = HashMap::new();
-    rooms.insert("bmtream".to_owned(), Arc::new(Mutex::new(Room::new())));
-    rooms
-});
+static ROOM_MANAGER: OnceLock<RoomManager> = OnceLock::new();
+
+#[derive(Debug)]
+struct RoomManager {
+    inner: Mutex<HashMap<String, Arc<Mutex<Room>>>>,
+    pool: sqlx::PgPool,
+}
+
+impl RoomManager {
+    async fn get(&self, pwd: &str) -> Option<Arc<Mutex<Room>>> {
+        if let Some(room) = self.inner.lock().await.get(pwd) {
+            return Some(room.clone());
+        }
+
+        let (state,): (Option<Vec<u8>>,) =
+            match sqlx::query_as("SELECT state FROM rooms WHERE pwd = $1 ORDER BY ts DESC LIMIT 1")
+                .bind(&pwd)
+                .fetch_one(&self.pool)
+                .await
+            {
+                Ok(state) => state,
+                Err(sqlx::Error::RowNotFound) => return None,
+                Err(err) => {
+                    leptos::logging::warn!("error fetching from database: {}", err);
+                    return None;
+                }
+            };
+
+        let room = match state {
+            None => Room::new(pwd.to_owned(), self.pool.clone()),
+            Some(state) => Room::from_state(
+                pwd.to_owned(),
+                rmp_serde::from_slice(&state[..])
+                    .map_err(|err| {
+                        leptos::logging::warn!("error deserializing from database: {}", err)
+                    })
+                    .ok()?,
+                self.pool.clone(),
+            ),
+        };
+
+        let room = Arc::new(Mutex::new(room));
+
+        {
+            let room = room.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    let mut thing = room.lock().await;
+                    if thing.saved {
+                        continue;
+                    }
+                    let value = match rmp_serde::to_vec(&thing.puzzles) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            leptos::logging::warn!("error serializing to database: {}", err);
+                            continue;
+                        }
+                    };
+                    match sqlx::query("INSERT INTO rooms (pwd, state) VALUES ($1, $2)")
+                        .bind(&thing.pwd)
+                        .bind(&value)
+                        .execute(&thing.pool)
+                        .await
+                    {
+                        Ok(_) => (),
+                        Err(err) => leptos::logging::warn!("error writing to database: {}", err),
+                    };
+                    thing.saved = true;
+                }
+            });
+        }
+
+        self.inner.lock().await.insert(pwd.to_owned(), room.clone());
+        Some(room)
+    }
+}
 
 struct Room {
+    pwd: String,
     puzzles: IndexMap<String, (Puzzle, MultiplayerBoardState)>,
     clients: Vec<Weak<ClientHandle>>,
+    saved: bool,
+    pool: PgPool,
 }
 
 impl Room {
-    fn new() -> Self {
-        Self {
-            puzzles: PUZZLES
+    fn new(pwd: String, pool: PgPool) -> Self {
+        Self::from_state(
+            pwd,
+            PUZZLES
                 .iter()
                 .map(|(key, puzzle)| {
                     (
@@ -36,7 +114,21 @@ impl Room {
                     )
                 })
                 .collect(),
+            pool,
+        )
+    }
+
+    fn from_state(
+        pwd: String,
+        state: IndexMap<String, (Puzzle, MultiplayerBoardState)>,
+        pool: PgPool,
+    ) -> Self {
+        Self {
+            pwd,
+            puzzles: state,
             clients: Vec::new(),
+            pool,
+            saved: true,
         }
     }
 
@@ -49,6 +141,7 @@ impl Room {
     }
 
     async fn recv_op(&mut self, key: String, op: Op) -> Result<()> {
+        self.saved = false;
         if let Some((_, state)) = self.puzzles.get_mut(&key) {
             state.apply_op(op.clone())
         };
@@ -107,7 +200,7 @@ impl ClientHandle {
             ClientMessage::Join(room) => {
                 let mut self_room = self.room.lock().await;
                 if let None = &*self_room {
-                    if let Some(room) = ROOMS.get(&room) {
+                    if let Some(room) = ROOM_MANAGER.get().unwrap().get(&room).await {
                         room.lock().await.add_client(self.clone()).await?;
                         *self_room = Some(room.clone());
                     } else {
@@ -133,6 +226,12 @@ impl ClientHandle {
 }
 
 pub async fn connect(input: ResultStream<ClientMessage>) -> Result<ResultStream<ServerMessage>> {
+    let pool = use_context::<PgPool>().unwrap();
+    ROOM_MANAGER.get_or_init(|| RoomManager {
+        inner: Default::default(),
+        pool,
+    });
+
     let (client, rx) = ClientHandle::new();
     let client = Arc::new(client);
     tokio::spawn(client.listen(input));
