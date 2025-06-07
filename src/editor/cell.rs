@@ -100,12 +100,20 @@ pub fn PuzzleCell<'a, T: Board>(
         <div
             class=overlay_classes.join(" ")
             class:marked=marked
-            on:click=move |_| set_state.write().on_click(pos)
+            on:click=move |evt| {
+                if evt.button() == 0 {
+                    set_state.write().on_click(pos)
+                };
+            }
             on:contextmenu=move |evt| {
                 set_state.write().on_contextmenu(pos);
                 evt.prevent_default();
             }
-            on:mousedown=move |_| set_state.write().on_mousedown(pos)
+            on:mousedown=move |evt| {
+                if evt.button() == 0 {
+                    set_state.write().on_mousedown(pos)
+                };
+            }
             on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
             on:mouseleave=move |_| set_state.write().on_mouseleave(pos)
         />
