@@ -4,20 +4,20 @@
 .marked:is(:where(.group):hover *) {
     background-image: repeating-linear-gradient(
         45deg,
-        rgba(0 0 0 / 20%),
-        rgba(0 0 0 / 20%) 10px,
-        rgba(0 0 0 / 10%) 10px,
-        rgba(0 0 0 / 10%) 20px
+        rgba(0 0 0 / 30%),
+        rgba(0 0 0 / 30%) calc(6rem * sqrt(2) / 16),
+        rgba(0 0 0 / 10%) calc(6rem * sqrt(2) / 16),
+        rgba(0 0 0 / 10%) calc(6rem * sqrt(2) / 8)
     );
 }
 
 .marked {
     background-image: repeating-linear-gradient(
         45deg,
-        rgba(0 0 0 / 10%),
-        rgba(0 0 0 / 10%) 10px,
-        transparent 10px,
-        transparent 20px
+        rgba(0 0 0 / 20%),
+        rgba(0 0 0 / 20%) calc(6rem * sqrt(2) / 16),
+        transparent calc(6rem * sqrt(2) / 16),
+        transparent calc(6rem * sqrt(2) / 8)
     );
 }
 
