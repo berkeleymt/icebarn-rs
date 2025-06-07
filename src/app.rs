@@ -202,7 +202,7 @@ fn Rules() -> impl IntoView {
         <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-2">
             <h3 class="text-lg font-semibold">Instructions</h3>
 
-            <p>"Welcome to the BmMT Online 2025 Puzzle Round!"</p>
+            <p>"Welcome to the BmMT 2025 Online Puzzle Round!"</p>
 
             <p>"Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."</p>
 
