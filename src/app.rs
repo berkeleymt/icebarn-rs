@@ -1,4 +1,7 @@
-use leptos::{html, prelude::*};
+use leptos::{
+    html::{self},
+    prelude::*,
+};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -20,6 +23,11 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+                <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+                <link rel="shortcut icon" href="/favicon.ico" />
+                <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+                <link rel="manifest" href="/site.webmanifest" />
                 <AutoReload options=options.clone() />
                 <HydrationScripts options />
                 <MetaTags />
@@ -42,7 +50,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/icebarn-rs.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos" />
+        <Title text="BmMT 2025 Online Puzzle Round" />
 
         // content for this welcome page
         <Router>
