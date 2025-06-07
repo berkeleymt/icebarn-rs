@@ -213,15 +213,23 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
 fn Rules() -> impl IntoView {
     view! {
         <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-2">
-            <h3 class="text-lg font-semibold">Instructions</h3>
-
+            <h3 class="text-lg font-semibold">Rules</h3>
             <p>"Welcome to the BmMT 2025 Online Puzzle Round!"</p>
+            <p>"Here are the rules for the Puzzle Round. Please read them in detail!"</p>
+            <p>
+                <a href="/rules.pdf" target="_blank" class="text-blue-500 hover:underline">
+                    Puzzle Round Rules
+                </a>
+            </p>
+        </div>
 
+        <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-2">
+            <h3 class="text-lg font-semibold">Website Instructions</h3>
             <p>
                 "Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."
             </p>
 
-            <ul class="list-inside list-disc flex flex-col gap-1">
+            <ul class="ml-8 list-disc flex flex-col gap-1">
                 <li>
                     "To get credit for solving the puzzle, you will have to draw a single, continuous path starting from the IN arrow (outside the grid) and ending at the OUT square (also outside the grid)."
                 </li>
