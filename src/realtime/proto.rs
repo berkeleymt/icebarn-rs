@@ -10,6 +10,7 @@ use crate::{
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum ClientMessage {
     Heartbeat,
+    Join(String),
     Op(String, Op),
 }
 
@@ -18,7 +19,8 @@ pub enum ServerMessage {
     HeartbeatAck,
     Op(String, Op),
     State(String, MultiplayerBoardState),
-    Init(IndexMap<String, (Puzzle, MultiplayerBoardState)>),
+    JoinAck(IndexMap<String, (Puzzle, MultiplayerBoardState)>),
+    FatalError(String),
 }
 
 pub type Result<T, E = ServerFnError> = std::result::Result<T, E>;

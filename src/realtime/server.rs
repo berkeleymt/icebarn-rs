@@ -1,4 +1,7 @@
-use std::sync::{Arc, LazyLock, Weak};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock, Weak},
+};
 
 use futures::{channel::mpsc, lock::Mutex, SinkExt, StreamExt};
 use indexmap::IndexMap;
@@ -6,44 +9,14 @@ use indexmap::IndexMap;
 use crate::{
     bpz::Puzzle,
     editor::board::multiplayer::{MultiplayerBoardState, Op},
+    puzzles::PUZZLES,
     realtime::proto::{ClientMessage, Result, ResultStream, ServerMessage},
 };
 
-static MAIN_ROOM: LazyLock<Arc<Mutex<Room>>> = LazyLock::new(|| Arc::new(Mutex::new(Room::new())));
-
-macro_rules! bpz {
-    ($key:literal, $path:literal) => {
-        ($key, include_str!($path))
-    };
-}
-
-static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
-    [
-        bpz!("Basic 1", "../../puzzles/basic-1.bpz"),
-        bpz!("Basic 2", "../../puzzles/basic-2.bpz"),
-        bpz!("Basic 3", "../../puzzles/basic-3.bpz"),
-        bpz!("World Tour 1", "../../puzzles/world-tour-1.bpz"),
-        bpz!("World Tour 2", "../../puzzles/world-tour-2.bpz"),
-        bpz!("World Tour 3", "../../puzzles/world-tour-3.bpz"),
-        bpz!("Drive-Thru 1", "../../puzzles/drive-thru-1.bpz"),
-        bpz!("Drive-Thru 2", "../../puzzles/drive-thru-2.bpz"),
-        bpz!("Drive-Thru 3", "../../puzzles/drive-thru-3.bpz"),
-        bpz!("Black Ice 1", "../../puzzles/black-ice-1.bpz"),
-        bpz!("Black Ice 2", "../../puzzles/black-ice-2.bpz"),
-        bpz!("Black Ice 3", "../../puzzles/black-ice-3.bpz"),
-        bpz!("Challenge 1 (Basic)", "../../puzzles/challenge-1.bpz"),
-        bpz!("Challenge 2 (World Tour)", "../../puzzles/challenge-2.bpz"),
-        bpz!("Challenge 3 (Drive-Thru)", "../../puzzles/challenge-3.bpz"),
-        bpz!("Challenge 4 (Black Ice)", "../../puzzles/challenge-4.bpz"),
-    ]
-    .into_iter()
-    .map(|(name, src)| {
-        (
-            name,
-            src.parse().expect(&format!("Failed to parse {}", name)),
-        )
-    })
-    .collect()
+static ROOMS: LazyLock<HashMap<String, Arc<Mutex<Room>>>> = LazyLock::new(|| {
+    let mut rooms = HashMap::new();
+    rooms.insert("bmtream".to_owned(), Arc::new(Mutex::new(Room::new())));
+    rooms
 });
 
 struct Room {
@@ -69,7 +42,7 @@ impl Room {
 
     async fn add_client(&mut self, client: Arc<ClientHandle>) -> Result<()> {
         client
-            .send(ServerMessage::Init(self.puzzles.clone()))
+            .send(ServerMessage::JoinAck(self.puzzles.clone()))
             .await?;
         self.clients.push(Arc::downgrade(&client));
         Ok(())
@@ -93,15 +66,15 @@ impl Room {
 
 struct ClientHandle {
     tx: Mutex<mpsc::Sender<Result<ServerMessage>>>,
-    room: Arc<Mutex<Room>>,
+    room: Arc<Mutex<Option<Arc<Mutex<Room>>>>>,
 }
 
 impl ClientHandle {
-    fn new(room: Arc<Mutex<Room>>) -> (Self, mpsc::Receiver<Result<ServerMessage>>) {
+    fn new() -> (Self, mpsc::Receiver<Result<ServerMessage>>) {
         let (tx, rx) = mpsc::channel(1);
         let client = Self {
             tx: Mutex::new(tx),
-            room,
+            room: Default::default(),
         };
         (client, rx)
     }
@@ -109,7 +82,7 @@ impl ClientHandle {
     async fn listen(self: Arc<Self>, mut input: ResultStream<ClientMessage>) {
         while let Some(message) = input.next().await {
             let result = match message {
-                Ok(message) => self.recv(message).await,
+                Ok(message) => self.clone().recv(message).await,
                 Err(error) => Err(error),
             };
             match result {
@@ -123,13 +96,36 @@ impl ClientHandle {
         Ok(self.tx.lock().await.send(Ok(message)).await?)
     }
 
-    async fn recv(&self, message: ClientMessage) -> Result<()> {
+    async fn fatal_error(&self, message: String) -> Result<()> {
+        self.send(ServerMessage::FatalError(message)).await?;
+        self.tx.lock().await.close_channel();
+        Ok(())
+    }
+
+    async fn recv(self: Arc<Self>, message: ClientMessage) -> Result<()> {
         match message {
+            ClientMessage::Join(room) => {
+                let mut self_room = self.room.lock().await;
+                if let None = &*self_room {
+                    if let Some(room) = ROOMS.get(&room) {
+                        room.lock().await.add_client(self.clone()).await?;
+                        *self_room = Some(room.clone());
+                    } else {
+                        self.fatal_error("No room exists with the given password.".to_owned())
+                            .await?;
+                    }
+                } else {
+                    self.fatal_error("Attempted to join a room twice!".to_owned())
+                        .await?;
+                }
+            }
             ClientMessage::Heartbeat => {
                 self.send(ServerMessage::HeartbeatAck).await?;
             }
             ClientMessage::Op(key, op) => {
-                self.room.lock().await.recv_op(key, op).await?;
+                if let Some(room) = &*self.room.lock().await {
+                    room.lock().await.recv_op(key, op).await?;
+                }
             }
         };
         Ok(())
@@ -137,12 +133,8 @@ impl ClientHandle {
 }
 
 pub async fn connect(input: ResultStream<ClientMessage>) -> Result<ResultStream<ServerMessage>> {
-    let room = MAIN_ROOM.clone();
-
-    let (client, rx) = ClientHandle::new(room.clone());
+    let (client, rx) = ClientHandle::new();
     let client = Arc::new(client);
-    room.lock().await.add_client(client.clone()).await?;
     tokio::spawn(client.listen(input));
-
     Ok(rx.into())
 }

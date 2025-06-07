@@ -27,6 +27,7 @@ crdts = "7.3.2"
 uuid = { version = "1.17.0", features = ["serde", "v4"] }
 getrandom = "0.2.16"
 indexmap = { version = "2.9.0", features = ["serde"] }
+sqlx = { version = "0.8.6", optional = true, features = ["runtime-tokio"] }
 
 
 [features]
@@ -40,6 +41,7 @@ hydrate = [
 ]
 ssr = [
     "dep:axum",
+    "dep:sqlx",
     "dep:tokio",
     "dep:leptos_axum",
     "leptos/ssr",

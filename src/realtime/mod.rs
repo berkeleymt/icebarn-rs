@@ -14,7 +14,6 @@ use crate::{
 };
 
 mod proto;
-pub mod status;
 
 #[cfg(feature = "ssr")]
 mod server;
@@ -27,6 +26,7 @@ pub struct HeartbeatState {
     last_heartbeat: RwSignal<SystemTime>,
     last_heartbeat_ack: RwSignal<SystemTime>,
     pub is_connected: Signal<bool>,
+    pub fatal_error: RwSignal<Option<String>>,
 }
 
 impl HeartbeatState {
@@ -41,6 +41,7 @@ impl HeartbeatState {
             last_heartbeat,
             last_heartbeat_ack,
             is_connected,
+            fatal_error: Default::default(),
         }
     }
 
@@ -67,6 +68,10 @@ impl Client {
         (client, rx)
     }
 
+    pub async fn close(&self) {
+        self.tx.lock().await.close_channel();
+    }
+
     async fn listen(self: Arc<Self>, mut input: ResultStream<ServerMessage>) {
         while let Some(message) = input.next().await {
             let result = match message {
@@ -86,6 +91,10 @@ impl Client {
 
     async fn recv(self: Arc<Self>, message: ServerMessage) -> Result<()> {
         match message {
+            ServerMessage::FatalError(error) => {
+                self.heartbeat_state.fatal_error.set(Some(error));
+                self.tx.lock().await.close_channel();
+            }
             ServerMessage::HeartbeatAck => {
                 self.heartbeat_state.recv_ack();
             }
@@ -105,7 +114,7 @@ impl Client {
                 }
                 None => {}
             },
-            ServerMessage::Init(state) => {
+            ServerMessage::JoinAck(state) => {
                 let client = self.clone();
                 self.editor_state.set(Some(
                     state
@@ -140,7 +149,7 @@ impl Client {
     }
 }
 
-pub fn provide_client() {
+pub fn connect_client(room: String) -> Arc<Client> {
     let (client, rx) = Client::new();
 
     if cfg!(feature = "hydrate") {
@@ -150,6 +159,16 @@ pub fn provide_client() {
             leptos::task::spawn(async move {
                 let input = connect_stub(rx.into()).await.unwrap();
                 client.listen(input).await;
+            });
+        }
+        {
+            let client = client.clone();
+            leptos::task::spawn_local(async move {
+                client
+                    .clone()
+                    .send(ClientMessage::Join(room))
+                    .await
+                    .unwrap()
             });
         }
         {
@@ -167,7 +186,7 @@ pub fn provide_client() {
         }
     }
 
-    provide_context::<Arc<Client>>(client);
+    client
 }
 
 pub fn use_client() -> Option<Arc<Client>> {
