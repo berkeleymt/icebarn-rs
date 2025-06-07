@@ -82,4 +82,17 @@ impl Board for MultiplayerBoard {
         self.tx.try_send(op.clone()).unwrap();
         self.state.apply_op(op.clone());
     }
+
+    fn marked(&self, p: Pos) -> bool {
+        self.contains(p, p)
+    }
+
+    fn toggle_mark(&mut self, p: Pos) {
+        // TODO: This is kind of a hack
+        if self.marked(p) {
+            self.erase(p, p);
+        } else {
+            self.draw(p, p);
+        }
+    }
 }

@@ -81,6 +81,10 @@ impl<T: Board> State<T> {
         };
     }
 
+    pub fn on_contextmenu(&mut self, pos: Pos) {
+        self.board.toggle_mark(pos);
+    }
+
     pub fn on_mousedown(&mut self, pos: Pos) {
         use DrawState::*;
         match self.draw_state {

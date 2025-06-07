@@ -54,6 +54,8 @@ pub fn PuzzleEditor<'a, T: Board>(
     });
 
     let render_cell = |pos| {
+        let marked = Signal::derive(move || state.read().board.marked(pos));
+
         let lines = Memo::new(move |_| {
             let dirs = state.read().board.dirs_for_cell(pos);
             let preview_dirs = preview().dirs_for_cell(pos);
@@ -63,7 +65,7 @@ pub fn PuzzleEditor<'a, T: Board>(
                 .collect::<HashMap<_, _>>()
         });
 
-        view! { <PuzzleCell puzzle=&puzzle pos=pos lines=lines set_state=set_state /> }
+        view! { <PuzzleCell puzzle=&puzzle pos=pos marked=marked lines=lines set_state=set_state /> }
     };
 
     let render_row = |row| {
@@ -135,21 +137,25 @@ pub fn PuzzleEditor<'a, T: Board>(
                 </table>
                 {portals}
             </div>
-            {move || if clearing.get() {
-                view! {
-                    <Button {..} type="button" on:click=confirm_clear>
-                        <Trash attr:class="w-4 h-4" />
-                        "Click again to confirm"
-                    </Button>
-                }.into_any()
-            } else {
-                view! {
-                    <Button {..} type="button" on:click=clear>
-                        <Trash attr:class="w-4 h-4" />
-                        "Clear"
-                    </Button>
-                }.into_any()
-            } }
+            {move || {
+                if clearing.get() {
+                    view! {
+                        <Button {..} type="button" on:click=confirm_clear>
+                            <Trash attr:class="w-4 h-4" />
+                            "Click again to confirm"
+                        </Button>
+                    }
+                        .into_any()
+                } else {
+                    view! {
+                        <Button {..} type="button" on:click=clear>
+                            <Trash attr:class="w-4 h-4" />
+                            "Clear"
+                        </Button>
+                    }
+                        .into_any()
+                }
+            }}
         </div>
     }
 }

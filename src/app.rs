@@ -67,10 +67,10 @@ fn HomePage() -> impl IntoView {
     let (mode, set_mode) = signal(Mode::Lobby);
 
     move || match &*mode.read() {
-        Mode::Lobby => view! { <Lobby set_mode=set_mode />}.into_any(),
-        Mode::Singleplayer => view! { <Singleplayer set_mode=set_mode />}.into_any(),
+        Mode::Lobby => view! { <Lobby set_mode=set_mode /> }.into_any(),
+        Mode::Singleplayer => view! { <Singleplayer set_mode=set_mode /> }.into_any(),
         Mode::Multiplayer(room) => {
-            view! { <Multiplayer room=room.clone() set_mode=set_mode />}.into_any()
+            view! { <Multiplayer room=room.clone() set_mode=set_mode /> }.into_any()
         }
     }
 }
@@ -125,7 +125,12 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
             } else {
                 view! {
                     <NoSignal {..} class="w-6 h-6 text-red-500" />
-                    {client.heartbeat_state.fatal_error.read().as_deref().unwrap_or("Disconnected. If this persists, try reloading the page.")}
+                    {client
+                        .heartbeat_state
+                        .fatal_error
+                        .read()
+                        .as_deref()
+                        .unwrap_or("Disconnected. If this persists, try reloading the page.")}
                 }
                 .into_any()
             }
@@ -146,24 +151,24 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
     view! {
         <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
             <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
-                {status}
-                <div class="flex-1" />
-                <Button {..} on:click=leave_room>Leave Room</Button>
+                {status} <div class="flex-1" /> <Button {..} on:click=leave_room>
+                    Leave Room
+                </Button>
             </div>
             <Rules />
-            <Show when={ready}>
+            <Show when=ready>
                 {if let Some(state) = &*client.editor_state.read() {
                     state
-                    .iter()
-                    .map(|(key, (puzzle, state))| {
-                        view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
-                    })
-                    .collect::<Vec<_>>()
-                    .into_any()
+                        .iter()
+                        .map(|(key, (puzzle, state))| {
+                            view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
+                        })
+                        .collect::<Vec<_>>()
+                        .into_any()
                 } else {
-                        view! { "Something weird occurred. If this persists, try reloading the page." }.into_any()
-                    }
-                }
+                    view! { "Something weird occurred. If this persists, try reloading the page." }
+                        .into_any()
+                }}
             </Show>
         </div>
     }
@@ -186,9 +191,9 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     view! {
         <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
             <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
-                "Singleplayer mode"
-                <div class="flex-1" />
-                <Button {..} on:click=leave_room>Close and Delete Game</Button>
+                "Singleplayer mode" <div class="flex-1" /> <Button {..} on:click=leave_room>
+                    Close and Delete Game
+                </Button>
             </div>
             <Rules />
             {puzzles}
@@ -204,17 +209,31 @@ fn Rules() -> impl IntoView {
 
             <p>"Welcome to the BmMT 2025 Online Puzzle Round!"</p>
 
-            <p>"Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."</p>
+            <p>
+                "Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."
+            </p>
 
             <ul class="list-inside list-disc flex flex-col gap-1">
-                <li>"To get credit for solving the puzzle, you will have to draw a single, continuous path starting from the IN arrow (outside the grid) and ending at the OUT square (also outside the grid)."</li>
-                <li>"To draw lines, you can either left-click and drag from one box to another, or left-click on two different cells to connect them with the straightest line that can go between them."</li>
-                <li>"To erase lines, you can left-click and drag across lines that are already drawn. Also, while you're dragging to draw a line, you can drag over your most recently drawn segment to erase it."</li>
-                <li>"You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"</li>
-                <li>"Don't draw outside the boundary of the puzzle, except for the IN and OUT squares, even if the software lets you!"</li>
+                <li>
+                    "To get credit for solving the puzzle, you will have to draw a single, continuous path starting from the IN arrow (outside the grid) and ending at the OUT square (also outside the grid)."
+                </li>
+                <li>
+                    "To draw lines, you can either left-click and drag from one box to another, or left-click on two different cells to connect them with the straightest line that can go between them."
+                </li>
+                <li>
+                    "To erase lines, you can left-click and drag across lines that are already drawn. Also, while you're dragging to draw a line, you can drag over your most recently drawn segment to erase it."
+                </li>
+                <li>
+                    "You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"
+                </li>
+                <li>
+                    "Don't draw outside the boundary of the puzzle, except for the IN and OUT squares, even if the software lets you!"
+                </li>
             </ul>
 
-            <p>"Also, for Black Ice puzzles, it may be helpful to shade in potential ice squares. You can do this by right-clicking (or, on a Mac trackpad, clicking with two fingers) on a square to mark/unmark it as an ice square. This will not be graded."</p>
+            <p>
+                "Also, for Black Ice puzzles, it may be helpful to shade in potential ice squares. You can do this by right-clicking (or, on a Mac trackpad, clicking with two fingers) on a square to mark/unmark it as an ice square. This will not be graded."
+            </p>
         </div>
     }
 }

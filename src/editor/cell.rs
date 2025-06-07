@@ -49,6 +49,7 @@ pub fn PuzzleCell<'a, T: Board>(
     puzzle: &'a Puzzle,
     pos: Pos,
     #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
+    marked: Signal<bool>,
     set_state: WriteSignal<State<T>>,
 ) -> impl IntoView {
     let mut td_classes = vec!["group w-12 h-12".to_owned()];
@@ -98,7 +99,12 @@ pub fn PuzzleCell<'a, T: Board>(
     let interactive_overlay = view! {
         <div
             class=overlay_classes.join(" ")
+            class:marked=marked
             on:click=move |_| set_state.write().on_click(pos)
+            on:contextmenu=move |evt| {
+                set_state.write().on_contextmenu(pos);
+                evt.prevent_default();
+            }
             on:mousedown=move |_| set_state.write().on_mousedown(pos)
             on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
             on:mouseleave=move |_| set_state.write().on_mouseleave(pos)
