@@ -150,6 +150,7 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
                 <div class="flex-1" />
                 <Button {..} on:click=leave_room>Leave Room</Button>
             </div>
+            <Rules />
             <Show when={ready}>
                 {if let Some(state) = &*client.editor_state.read() {
                     state
@@ -189,7 +190,31 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
                 <div class="flex-1" />
                 <Button {..} on:click=leave_room>Close and Delete Game</Button>
             </div>
+            <Rules />
             {puzzles}
+        </div>
+    }
+}
+
+#[component]
+fn Rules() -> impl IntoView {
+    view! {
+        <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-2">
+            <h3 class="text-lg font-semibold">Instructions</h3>
+
+            <p>"Welcome to the BmMT Online 2025 Puzzle Round!"</p>
+
+            <p>"Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."</p>
+
+            <ul class="list-inside list-disc flex flex-col gap-1">
+                <li>"To get credit for solving the puzzle, you will have to draw a single, continuous path starting from the IN arrow (outside the grid) and ending at the OUT square (also outside the grid)."</li>
+                <li>"To draw lines, you can either left-click and drag from one box to another, or left-click on two different cells to connect them with the straightest line that can go between them."</li>
+                <li>"To erase lines, you can left-click and drag across lines that are already drawn. Also, while you're dragging to draw a line, you can drag over your most recently drawn segment to erase it."</li>
+                <li>"You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"</li>
+                <li>"Don't draw outside the boundary of the puzzle, except for the IN and OUT squares, even if the software lets you!"</li>
+            </ul>
+
+            <p>"Also, for Black Ice puzzles, it may be helpful to shade in potential ice squares. You can do this by right-clicking (or, on a Mac trackpad, clicking with two fingers) on a square to mark/unmark it as an ice square. This will not be graded."</p>
         </div>
     }
 }
