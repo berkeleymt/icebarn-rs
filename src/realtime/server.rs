@@ -67,7 +67,7 @@ impl RoomManager {
                     if thing.saved {
                         continue;
                     }
-                    let value = match rmp_serde::to_vec(&thing.puzzles) {
+                    let value = match rmp_serde::to_vec_named(&thing.puzzles) {
                         Ok(value) => value,
                         Err(err) => {
                             leptos::logging::warn!("error serializing to database: {}", err);

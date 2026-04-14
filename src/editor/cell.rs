@@ -112,7 +112,7 @@ pub fn PuzzleCell<'a, T: Board>(
     let interactive_overlay = view! {
         <div
             class=overlay_classes.join(" ")
-            class:marked=marked
+            class:marked=move || !is_aqre && marked.get()
             on:click=move |evt| {
                 if evt.button() == 0 {
                     set_state.write().on_click(pos)

@@ -115,6 +115,7 @@ pub struct Cell {
     pub text: Option<String>,
     pub arrows: HashSet<Dir>,
     pub portals: HashMap<Dir, u32>,
+    #[serde(default)]
     pub region: Option<u32>,
 }
 
@@ -164,6 +165,7 @@ impl Cell {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Puzzle {
+    #[serde(default)]
     pub puzzle_type: PuzzleType,
     pub bl: Pos,
     pub tr: Pos,
