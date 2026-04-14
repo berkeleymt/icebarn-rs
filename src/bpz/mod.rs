@@ -165,13 +165,13 @@ impl Cell {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Puzzle {
-    #[serde(default)]
-    pub puzzle_type: PuzzleType,
     pub bl: Pos,
     pub tr: Pos,
     pub portals: Vec<Portal>,
     default_cell: Cell,
     cells: HashMap<Pos, Cell>,
+    #[serde(default)]
+    pub puzzle_type: PuzzleType,
 }
 
 #[derive(Debug, Error)]
