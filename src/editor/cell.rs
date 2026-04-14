@@ -4,7 +4,7 @@ use leptos::prelude::*;
 
 use super::{board::Board, state::State, util::rotate_from_north};
 use crate::{
-    bpz::{Dir, Pos, Puzzle, Shading},
+    bpz::{Dir, Pos, Puzzle, PuzzleType, Shading},
     heroicons::solid::ArrowLongUp,
 };
 
@@ -56,6 +56,7 @@ pub fn PuzzleCell<'a, T: Board>(
     let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
 
     let cell = puzzle.get_cell(pos).clone();
+    let is_aqre = puzzle.puzzle_type == PuzzleType::Aqre;
 
     if cell.shading == Shading::Icebarn {
         td_classes.push("bg-blue-200".to_owned());
@@ -63,14 +64,26 @@ pub fn PuzzleCell<'a, T: Board>(
 
     for dir in Dir::iter() {
         use Shading::*;
-        let (td_class, div_class) = match cell.portals.get(&dir) {
-            Some(&portal) => portal_border(dir, portal),
-            None => match (cell.shading, puzzle.get_cell(pos + dir).shading) {
-                (Icebarn, Default) | (Default, Icebarn) => icebarn_border(dir),
-                (Default | Icebarn, Removed) | (Removed, Default | Icebarn) => boundary_border(dir),
+        let (td_class, div_class) = if is_aqre {
+            let neighbor = puzzle.get_cell(pos + dir);
+            match (cell.shading, neighbor.shading) {
                 (Removed, Removed) => ("".to_owned(), ""),
+                (_, Removed) | (Removed, _) => boundary_border(dir),
+                _ if cell.region != neighbor.region => boundary_border(dir),
                 _ => default_border(dir),
-            },
+            }
+        } else {
+            match cell.portals.get(&dir) {
+                Some(&portal) => portal_border(dir, portal),
+                None => match (cell.shading, puzzle.get_cell(pos + dir).shading) {
+                    (Icebarn, Default) | (Default, Icebarn) => icebarn_border(dir),
+                    (Default | Icebarn, Removed) | (Removed, Default | Icebarn) => {
+                        boundary_border(dir)
+                    }
+                    (Removed, Removed) => ("".to_owned(), ""),
+                    _ => default_border(dir),
+                },
+            }
         };
         td_classes.push(td_class);
         div_classes.push(div_class);
@@ -120,8 +133,11 @@ pub fn PuzzleCell<'a, T: Board>(
     };
 
     let text = match cell.text.as_deref() {
+        Some(text) if is_aqre => {
+            view! { <span class="z-1 text-sm font-medium">{text}</span> }.into_any()
+        }
         Some(text) => view! { <span class="z-1">{text}</span> }.into_any(),
-        None if cell.shading != Shading::Removed => {
+        None if !is_aqre && cell.shading != Shading::Removed => {
             view! { <div class="w-1 h-1 bg-gray-400 group-hover:bg-black rounded-full" /> }
                 .into_any()
         }
@@ -153,7 +169,7 @@ pub fn PuzzleCell<'a, T: Board>(
     };
 
     view! {
-        <td class=td_classes.join(" ")>
+        <td class=td_classes.join(" ") class:aqre-shaded=move || is_aqre && marked.get()>
             <div class=div_classes
                 .join(" ")>{interactive_overlay} {text} {arrows} {render_lines}</div>
         </td>

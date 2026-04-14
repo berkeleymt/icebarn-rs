@@ -187,7 +187,8 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     let puzzles: Vec<_> = PUZZLES
         .iter()
         .map(|(key, puzzle)| {
-            let state = RwSignal::new(State::new(SingleplayerBoard::default()));
+            let state =
+                RwSignal::new(State::new(SingleplayerBoard::default(), puzzle.puzzle_type));
             view! { <PuzzleEditor name=key puzzle=puzzle state=state /> }
         })
         .collect();

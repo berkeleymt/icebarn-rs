@@ -11,6 +11,13 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
+pub enum PuzzleType {
+    #[default]
+    Icebarn,
+    Aqre,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Pos {
     pub row: i32,
@@ -108,6 +115,7 @@ pub struct Cell {
     pub text: Option<String>,
     pub arrows: HashSet<Dir>,
     pub portals: HashMap<Dir, u32>,
+    pub region: Option<u32>,
 }
 
 impl Default for Cell {
@@ -117,6 +125,7 @@ impl Default for Cell {
             text: Option::default(),
             arrows: HashSet::default(),
             portals: HashMap::default(),
+            region: None,
         }
     }
 }
@@ -143,6 +152,11 @@ impl Cell {
         self
     }
 
+    pub fn set_region(&mut self, region: u32) -> &mut Self {
+        self.region = Some(region);
+        self
+    }
+
     pub fn interactive(&self) -> bool {
         return self.text.is_some() || self.shading != Shading::Removed || !self.portals.is_empty();
     }
@@ -150,6 +164,7 @@ impl Cell {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Puzzle {
+    pub puzzle_type: PuzzleType,
     pub bl: Pos,
     pub tr: Pos,
     pub portals: Vec<Portal>,

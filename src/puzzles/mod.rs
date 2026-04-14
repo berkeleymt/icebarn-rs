@@ -26,6 +26,12 @@ pub static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
         bpz!("Challenge 2 (World Tour)", "./challenge-2.bpz"),
         bpz!("Challenge 3 (Drive-Thru)", "./challenge-3.bpz"),
         bpz!("Challenge 4 (Black Ice)", "./challenge-4.bpz"),
+        bpz!("Aqre Basic 1", "./aqre-basic-1.bpz"),
+        bpz!("Aqre Basic 2", "./aqre-basic-2.bpz"),
+        bpz!("Aqre Basic 3", "./aqre-basic-3.bpz"),
+        bpz!("Aqre Paint 1", "./aqre-paint-1.bpz"),
+        bpz!("Aqre Spiral 1", "./aqre-spiral-1.bpz"),
+        bpz!("Aqre Binario 1", "./aqre-binario-1.bpz"),
     ]
     .into_iter()
     .map(|(name, src)| {

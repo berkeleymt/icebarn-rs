@@ -27,6 +27,18 @@
     );
 }
 
+td.aqre-shaded {
+    background-color: rgb(75 85 99);
+}
+
+td.aqre-shaded span {
+    color: white;
+}
+
+td.aqre-shaded:is(:where(.group):hover) {
+    background-color: rgb(107 114 128);
+}
+
 /* TODO: Figure out a better way to do this */
 
 :root {

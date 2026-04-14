@@ -2,7 +2,7 @@ use itertools::Itertools;
 use vec1::{vec1, Vec1};
 
 use crate::{
-    bpz::Pos,
+    bpz::{Pos, PuzzleType},
     editor::board::{singleplayer::SingleplayerBoard, Board},
 };
 
@@ -14,6 +14,7 @@ pub enum DrawState {
     ClickedAndHeld { clicked: Pos, held: Pos },
     Drawing { visited: Vec1<Pos> },
     Erasing { last: Pos },
+    AqreShading { shade: bool },
 }
 
 impl Default for DrawState {
@@ -22,19 +23,21 @@ impl Default for DrawState {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct State<T: Board> {
     pub board: T,
     draw_state: DrawState,
     hovered: Option<Pos>,
+    pub puzzle_type: PuzzleType,
 }
 
 impl<T: Board> State<T> {
-    pub fn new(board: T) -> Self {
+    pub fn new(board: T, puzzle_type: PuzzleType) -> Self {
         Self {
             board,
             draw_state: DrawState::default(),
             hovered: None,
+            puzzle_type,
         }
     }
 
@@ -55,6 +58,11 @@ impl<T: Board> State<T> {
     }
 
     pub fn on_click(&mut self, pos: Pos) {
+        if self.puzzle_type == PuzzleType::Aqre {
+            // For AQRE, mousedown already handles toggling
+            return;
+        }
+
         use DrawState::*;
         match self.draw_state {
             Idle | Drawing { .. } | Erasing { .. } => {
@@ -78,28 +86,46 @@ impl<T: Board> State<T> {
 
                 self.draw_state = Idle;
             }
+            AqreShading { .. } => {}
         };
     }
 
     pub fn on_contextmenu(&mut self, pos: Pos) {
+        if self.puzzle_type == PuzzleType::Aqre {
+            // For AQRE, right-click is not used
+            return;
+        }
         self.board.toggle_mark(pos);
     }
 
     pub fn on_mousedown(&mut self, pos: Pos) {
+        if self.puzzle_type == PuzzleType::Aqre {
+            self.board.toggle_mark(pos);
+            let shade = self.board.marked(pos);
+            self.draw_state = DrawState::AqreShading { shade };
+            return;
+        }
+
         use DrawState::*;
         match self.draw_state {
             Clicked(clicked) => {
                 self.draw_state = ClickedAndHeld { clicked, held: pos };
             }
-            Idle | Held(_) | ClickedAndHeld { .. } | Drawing { .. } | Erasing { .. } => {
-                self.draw_state = Held(pos)
-            }
+            Idle | Held(_) | ClickedAndHeld { .. } | Drawing { .. } | Erasing { .. }
+            | AqreShading { .. } => self.draw_state = Held(pos),
         };
     }
 
     pub fn on_mouseenter(&mut self, pos: Pos) {
         use DrawState::*;
         match self.draw_state {
+            AqreShading { shade } => {
+                if shade && !self.board.marked(pos) {
+                    self.board.toggle_mark(pos);
+                } else if !shade && self.board.marked(pos) {
+                    self.board.toggle_mark(pos);
+                }
+            }
             Idle | Clicked(_) => {}
             Held(held) | ClickedAndHeld { held, .. } if self.board.contains(held, pos) => {
                 // TODO: pos and held might not be adjacent here
@@ -143,7 +169,9 @@ impl<T: Board> State<T> {
         use DrawState::*;
         match self.draw_state {
             Idle | Clicked(_) => {}
-            Held(_) | Drawing { .. } | Erasing { .. } => self.draw_state = Idle,
+            Held(_) | Drawing { .. } | Erasing { .. } | AqreShading { .. } => {
+                self.draw_state = Idle
+            }
             ClickedAndHeld { clicked, .. } => self.draw_state = Clicked(clicked),
         }
     }

@@ -120,6 +120,7 @@ impl Client {
                     state
                         .into_iter()
                         .map(move |(key, (puzzle, state))| {
+                            let puzzle_type = puzzle.puzzle_type;
                             (
                                 key.clone(),
                                 (puzzle, {
@@ -137,7 +138,7 @@ impl Client {
                                         }
                                     });
 
-                                    RwSignal::new(State::new(board))
+                                    RwSignal::new(State::new(board, puzzle_type))
                                 }),
                             )
                         })
