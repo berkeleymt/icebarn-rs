@@ -47,12 +47,14 @@ COPY --from=builder /app/target/release/icebarn-rs /app/icebarn-rs
 # The hashed static site (JS/WASM/CSS + public assets). Served from LEPTOS_SITE_ROOT.
 COPY --from=builder /app/target/site /app/site
 
-# Leptos runtime configuration. site-addr MUST bind 0.0.0.0 to be reachable
-# from outside the pod; site-root points at the copied static dir.
+# Leptos runtime configuration. Bind [::] (IPv6 any) which is dual-stack on
+# Linux (IPV6_V6ONLY=0 by default) so the server also accepts IPv4-mapped
+# connections; the upstream default 127.0.0.1:3000 is unreachable from outside
+# the pod. site-root points at the copied static dir.
 ENV LEPTOS_OUTPUT_NAME="icebarn-rs" \
     LEPTOS_SITE_ROOT="site" \
     LEPTOS_SITE_PKG_DIR="pkg" \
-    LEPTOS_SITE_ADDR="0.0.0.0:3000" \
+    LEPTOS_SITE_ADDR="[::]:3000" \
     LEPTOS_RELOAD_PORT="3001" \
     RUST_LOG="info"
 

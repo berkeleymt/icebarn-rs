@@ -57,8 +57,9 @@ The server logs `listening on http://0.0.0.0:3000` once up.
 ## Runtime environment variables
 
 The image sets the `LEPTOS_*` runtime variables itself (see the `Dockerfile`);
-notably `LEPTOS_SITE_ADDR=0.0.0.0:3000` (the upstream default `127.0.0.1:3000`
-is **not** reachable from outside the container/pod) and `LEPTOS_SITE_ROOT=site`.
+notably `LEPTOS_SITE_ADDR=[::]:3000` (IPv6 any, **dual-stack** on Linux so it
+also accepts IPv4-mapped connections — the upstream default `127.0.0.1:3000` is
+**not** reachable from outside the container/pod) and `LEPTOS_SITE_ROOT=site`.
 
 ### Required
 
@@ -86,6 +87,39 @@ only offers single-player; the app still runs.
 | `OIDC_ISSUER` | `https://contestdojo.com/api/oidc` |
 | `CONTESTDOJO_API_BASE` | `https://api.contestdojo.com` |
 
+## Horizontal scaling
+
+**Run a single replica (`replicas: 1`) unless you add room-aware routing.**
+
+The HTTP/SSR surface and single-player solving are stateless and would scale
+fine. The **multiplayer realtime layer is not** horizontally scalable as-is:
+
+- Active rooms live in a **process-global in-memory map**
+  (`ROOM_MANAGER` in `src/realtime/server.rs`); each room holds the websocket
+  clients connected *to that process*, and an edit is broadcast only to those
+  local clients.
+- A room's state is snapshotted to Postgres every ~5s, but a room is loaded
+  from the DB **only once** when first opened on a process and is never
+  re-read afterward.
+
+So with more than one replica, two users in the same room that land on
+different pods won't see each other's live edits, and the periodic per-pod
+snapshots can clobber each other (last-write-wins per room), risking lost
+progress.
+
+To run more than one replica you'd need **one** of:
+
+1. **Room-affinity routing** — route every connection for a given room to the
+   same pod (consistent hashing on the room/team id at the gateway; e.g. a
+   `StatefulSet` + headless `Service` + hash router, or an L7 proxy with
+   consistent hashing). Note: plain client-IP/cookie session affinity is *not*
+   enough — affinity must be by **room**, since different clients in the same
+   room must share a pod.
+2. **A shared pub/sub backplane** — broadcast ops across pods (e.g. Postgres
+   `LISTEN/NOTIFY` or Redis) with the DB as the single source of truth and
+   proper CRDT merge on load. This is an application change (out of scope for
+   this image).
+
 ## Health check
 
 The image serves `GET /` on port `3000` (returns `200` when up) — use it for
@@ -95,8 +129,9 @@ Docker `HEALTHCHECK` hitting the same endpoint.
 ## Build gotchas
 
 - **Bind address**: the upstream default is `127.0.0.1:3000`. The image
-  overrides this to `0.0.0.0:3000` via `LEPTOS_SITE_ADDR`; without it the
-  container is unreachable from outside.
+  overrides this to `[::]:3000` via `LEPTOS_SITE_ADDR`; without it the
+  container is unreachable from outside. `[::]` is dual-stack on Linux
+  (`IPV6_V6ONLY=0` by default), so the server listens on both IPv6 and IPv4.
 - **Static site must be present**: both the server binary and `target/site`
   must be in the runtime image. The server serves assets from
   `LEPTOS_SITE_ROOT` (set to `site`, matching where the Dockerfile copies them).
