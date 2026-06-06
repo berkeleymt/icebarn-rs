@@ -323,16 +323,17 @@ async fn callback(
         ));
     }
 
-    let envelope: EventEnvelope = match resp.error_for_status() {
-        Ok(resp) => match resp.json().await {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                leptos::logging::error!("events decode failed: {err}");
-                return clear(error_page("Could not read your event registration."));
-            }
-        },
+    let status = resp.status();
+    if !status.is_success() {
+        let body = resp.text().await.unwrap_or_default();
+        leptos::logging::error!("events request returned {status}: {body}");
+        return clear(error_page("Could not read your event registration."));
+    }
+
+    let envelope: EventEnvelope = match resp.json().await {
+        Ok(envelope) => envelope,
         Err(err) => {
-            leptos::logging::error!("events request returned error status: {err}");
+            leptos::logging::error!("events decode failed: {err}");
             return clear(error_page("Could not read your event registration."));
         }
     };

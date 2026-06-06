@@ -115,6 +115,7 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
                                 }>"Join your team"</Button>
                                 <a
                                     href="/auth/logout"
+                                    rel="external"
                                     class="text-center text-sm text-gray-500 hover:underline"
                                 >
                                     "Sign out"
@@ -124,7 +125,7 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
                         }
                         _ => {
                             view! {
-                                <a href="/auth/login" class=LINK_BUTTON_CLASS>
+                                <a href="/auth/login" rel="external" class=LINK_BUTTON_CLASS>
                                     "Sign in with ContestDojo"
                                 </a>
                             }
