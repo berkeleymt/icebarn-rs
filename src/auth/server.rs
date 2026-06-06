@@ -228,10 +228,8 @@ struct CallbackParams {
     error: Option<String>,
 }
 
-/// ContestDojo UserInfo; we only need the custom `type` field (standard claims
-/// come from the verified id_token).
-#[derive(Deserialize)]
-struct UserInfo {
+#[derive(Debug, Deserialize)]
+struct IdExtraClaims {
     #[serde(default, rename = "type")]
     acct_type: Option<String>,
 }
@@ -358,23 +356,16 @@ async fn callback(
                 .map(|n| n.to_string())
         });
 
-    // The `type` claim (student/coach/admin) is ContestDojo-specific. Fetch it
-    // from the UserInfo endpoint, already authenticated via the access token.
-    let acct_type: Option<String> = match cfg.metadata.userinfo_endpoint() {
-        Some(url) => {
-            match cfg
-                .http_client
-                .get(url.url().as_str())
-                .bearer_auth(token_response.access_token().secret())
-                .send()
-                .await
-            {
-                Ok(r) => r.json::<UserInfo>().await.ok().and_then(|u| u.acct_type),
-                Err(_) => None,
-            }
-        }
-        None => None,
-    };
+    // The `type` claim (student/coach/admin) is ContestDojo-specific. The
+    // library has already verified the id_token signature + standard claims;
+    // extract `type` from the raw JWT payload.
+    let acct_type: Option<String> = id_token
+        .to_string()
+        .split('.')
+        .nth(1)
+        .and_then(|p| URL_SAFE_NO_PAD.decode(p).ok())
+        .and_then(|b| serde_json::from_slice::<IdExtraClaims>(&b).ok())
+        .and_then(|c| c.acct_type);
 
     // Student-only gate.
     if let Some(ref t) = acct_type {
