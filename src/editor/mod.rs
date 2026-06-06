@@ -129,9 +129,9 @@ pub fn PuzzleEditor<'a, T: Board>(
         .collect::<Vec<_>>();
 
     view! {
-        <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-3 shadow-sm transition-shadow hover:shadow-md">
+        <div class="border border-gray-300 rounded-lg p-4">
             <h3 class="text-lg font-semibold">{name.to_owned()}</h3>
-            <div class="relative overflow-x-auto">
+            <div class="relative">
                 <table class="select-none">
                     <tbody>
                         {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}

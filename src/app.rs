@@ -74,36 +74,6 @@ enum Mode {
     Multiplayer(String),
 }
 
-/// The variant a puzzle belongs to, derived from its name ("Basic 1" -> "Basic").
-fn group_label(name: &str) -> &str {
-    name.split_whitespace().next().unwrap_or(name)
-}
-
-/// Lay puzzles out in per-variant sections with a heading, preserving order.
-fn grouped_puzzles(items: Vec<(String, AnyView)>) -> Vec<AnyView> {
-    let mut sections: Vec<(String, Vec<AnyView>)> = Vec::new();
-    for (name, view) in items {
-        let group = group_label(&name).to_owned();
-        match sections.last_mut() {
-            Some((g, views)) if *g == group => views.push(view),
-            _ => sections.push((group, vec![view])),
-        }
-    }
-
-    sections
-        .into_iter()
-        .map(|(group, views)| {
-            view! {
-                <section class="flex flex-col gap-4">
-                    <h2 class="text-xl font-bold border-b border-gray-200 pb-1">{group}</h2>
-                    <div class="flex flex-wrap gap-6 items-start">{views}</div>
-                </section>
-            }
-            .into_any()
-        })
-        .collect()
-}
-
 #[component]
 fn HomePage() -> impl IntoView {
     let (mode, set_mode) = signal(Mode::Lobby);
@@ -201,8 +171,8 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-full max-w-5xl p-4 sm:p-8 gap-8">
-            <div class="flex flex-wrap gap-4 items-center sticky top-0 bg-white/95 backdrop-blur z-100 py-3 border-b border-gray-200">
+        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
+            <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
                 {status} <div class="flex-1" /> <Button {..} on:click=leave_room>
                     Leave Room
                 </Button>
@@ -210,17 +180,13 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
             <Show when=ready>
                 <Rules />
                 {if let Some(state) = &*client.editor_state.read() {
-                    let items = state
+                    state
                         .iter()
                         .map(|(key, (puzzle, state))| {
-                            (
-                                key.clone(),
-                                view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
-                                    .into_any(),
-                            )
+                            view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
                         })
-                        .collect::<Vec<_>>();
-                    grouped_puzzles(items).into_any()
+                        .collect::<Vec<_>>()
+                        .into_any()
                 } else {
                     view! { "Something weird occurred. If this persists, try reloading the page." }
                         .into_any()
@@ -232,15 +198,12 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
 
 #[component]
 fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
-    let items: Vec<(String, AnyView)> = PUZZLES
+    let puzzles: Vec<_> = PUZZLES
         .iter()
         .map(|(key, puzzle)| {
             let state =
                 RwSignal::new(State::new(SingleplayerBoard::default(), puzzle.puzzle_type));
-            (
-                (*key).to_owned(),
-                view! { <PuzzleEditor name=key puzzle=puzzle state=state /> }.into_any(),
-            )
+            view! { <PuzzleEditor name=key puzzle=puzzle state=state /> }
         })
         .collect();
 
@@ -249,8 +212,8 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-full max-w-5xl p-4 sm:p-8 gap-8">
-            <div class="flex flex-wrap gap-4 items-center sticky top-0 bg-white/95 backdrop-blur z-100 py-3 border-b border-gray-200">
+        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
+            <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
                 <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-3 py-1 text-sm font-medium">
                     "Singleplayer mode"
                 </span> <div class="flex-1" />
@@ -259,7 +222,7 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
                 </Button>
             </div>
             <Rules />
-            {grouped_puzzles(items)}
+            {puzzles}
         </div>
     }
 }
