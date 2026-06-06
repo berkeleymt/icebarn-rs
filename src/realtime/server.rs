@@ -9,6 +9,7 @@ use leptos::prelude::use_context;
 use sqlx::PgPool;
 
 use crate::{
+    auth::TeamSession,
     bpz::Puzzle,
     editor::board::multiplayer::{MultiplayerBoardState, Op},
     puzzles::PUZZLES,
@@ -24,26 +25,30 @@ struct RoomManager {
 }
 
 impl RoomManager {
-    async fn get(&self, pwd: &str) -> Option<Arc<Mutex<Room>>> {
+    /// Fetch a team's room by key, creating a fresh one (seeded with the
+    /// current puzzle set) if it doesn't exist yet. With ContestDojo sign-in,
+    /// the key is the team id, so every authenticated team transparently gets
+    /// its own room on first join.
+    async fn get_or_create(&self, pwd: &str) -> Option<Arc<Mutex<Room>>> {
         if let Some(room) = self.inner.lock().await.get(pwd) {
             return Some(room.clone());
         }
 
-        let (state,): (Option<Vec<u8>>,) =
+        let stored: Option<Vec<u8>> =
             match sqlx::query_as("SELECT state FROM rooms WHERE pwd = $1 ORDER BY ts DESC LIMIT 1")
                 .bind(&pwd)
                 .fetch_one(&self.pool)
                 .await
             {
-                Ok(state) => state,
-                Err(sqlx::Error::RowNotFound) => return None,
+                Ok((state,)) => state,
+                Err(sqlx::Error::RowNotFound) => None,
                 Err(err) => {
                     leptos::logging::warn!("error fetching from database: {}", err);
                     return None;
                 }
             };
 
-        let room = match state {
+        let room = match stored {
             None => Room::new(pwd.to_owned(), self.pool.clone()),
             Some(state) => Room::from_state(
                 pwd.to_owned(),
@@ -160,14 +165,18 @@ impl Room {
 struct ClientHandle {
     tx: Mutex<mpsc::Sender<Result<ServerMessage>>>,
     room: Arc<Mutex<Option<Arc<Mutex<Room>>>>>,
+    /// The authenticated team for this connection, resolved from the session
+    /// cookie at connect time. `None` means the client is not signed in.
+    team: Option<TeamSession>,
 }
 
 impl ClientHandle {
-    fn new() -> (Self, mpsc::Receiver<Result<ServerMessage>>) {
+    fn new(team: Option<TeamSession>) -> (Self, mpsc::Receiver<Result<ServerMessage>>) {
         let (tx, rx) = mpsc::channel(1);
         let client = Self {
             tx: Mutex::new(tx),
             room: Default::default(),
+            team,
         };
         (client, rx)
     }
@@ -197,15 +206,29 @@ impl ClientHandle {
 
     async fn recv(self: Arc<Self>, message: ClientMessage) -> Result<()> {
         match message {
-            ClientMessage::Join(room) => {
+            ClientMessage::Join(_) => {
+                // The room is keyed by the authenticated team id from the
+                // session cookie, never by a value the client supplies, so a
+                // user can only ever join their own team's room.
+                let Some(team) = self.team.clone() else {
+                    self.fatal_error(
+                        "You must sign in with ContestDojo to join your team.".to_owned(),
+                    )
+                    .await?;
+                    return Ok(());
+                };
+
                 let mut self_room = self.room.lock().await;
                 if let None = &*self_room {
-                    if let Some(room) = ROOM_MANAGER.get().unwrap().get(&room).await {
+                    if let Some(room) = ROOM_MANAGER.get().unwrap().get_or_create(&team.team_id).await
+                    {
                         room.lock().await.add_client(self.clone()).await?;
                         *self_room = Some(room.clone());
                     } else {
-                        self.fatal_error("No room exists with the given password.".to_owned())
-                            .await?;
+                        self.fatal_error(
+                            "Could not open your team's room. Please try again.".to_owned(),
+                        )
+                        .await?;
                     }
                 } else {
                     self.fatal_error("Attempted to join a room twice!".to_owned())
@@ -232,7 +255,11 @@ pub async fn connect(input: ResultStream<ClientMessage>) -> Result<ResultStream<
         pool,
     });
 
-    let (client, rx) = ClientHandle::new();
+    // Resolve the team from the session cookie on the upgrade request so the
+    // join is authorized server-side.
+    let team = crate::auth::server::team_from_request().await;
+
+    let (client, rx) = ClientHandle::new(team);
     let client = Arc::new(client);
     tokio::spawn(client.listen(input));
     Ok(rx.into())

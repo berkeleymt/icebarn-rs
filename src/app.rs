@@ -1,7 +1,4 @@
-use leptos::{
-    html::{self},
-    prelude::*,
-};
+use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -9,10 +6,8 @@ use leptos_router::{
 };
 
 use crate::{
-    components::{
-        button::{Button, ButtonColor},
-        input::Input,
-    },
+    auth::current_team,
+    components::button::{Button, ButtonColor},
     editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
     examples::Examples,
     heroicons::solid::{NoSignal, Signal},
@@ -87,26 +82,58 @@ fn HomePage() -> impl IntoView {
     }
 }
 
+/// Anchor styled like a primary [`Button`] (for navigations such as the OAuth
+/// sign-in redirect, which must be a real link, not a button click).
+const LINK_BUTTON_CLASS: &str = "cursor-pointer flex items-center gap-1.5 justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium shadow-sm transition-colors text-white bg-blue-600 hover:bg-blue-700";
+
 #[component]
 fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
-    let input_element: NodeRef<html::Input> = NodeRef::new();
-    let join_team = move |_| {
-        let room = input_element.get().unwrap().value();
-        set_mode.set(Mode::Multiplayer(room));
-    };
+    let team = OnceResource::new(current_team());
 
     view! {
         <div class="mx-auto flex flex-col w-full min-h-screen max-w-sm justify-center p-6 gap-6">
             <div class="flex flex-col gap-1 text-center">
                 <h1 class="text-2xl font-bold">"BmMT 2026 Puzzle Round"</h1>
                 <p class="text-sm text-gray-500">
-                    "Join your team with your password, or solve on your own."
+                    "Sign in with ContestDojo to join your team, or solve on your own."
                 </p>
             </div>
-            <form class="flex gap-3" on:submit=join_team>
-                <Input {..} node_ref=input_element placeholder="Enter team password..." />
-                <Button {..}>"Join Team"</Button>
-            </form>
+            <Suspense fallback=|| {
+                view! { <p class="text-center text-sm text-gray-500">"Loading…"</p> }
+            }>
+                {move || Suspend::new(async move {
+                    match team.await {
+                        Ok(Some(team)) => {
+                            let team_id = team.team_id.clone();
+                            view! {
+                                <div class="flex flex-col gap-1 text-center">
+                                    <p class="text-sm text-gray-500">"Signed in — your team:"</p>
+                                    <p class="text-lg font-semibold">{team.team_name.clone()}</p>
+                                </div>
+                                <Button {..} on:click=move |_| {
+                                    set_mode.set(Mode::Multiplayer(team_id.clone()))
+                                }>"Join your team"</Button>
+                                <a
+                                    href="/auth/logout"
+                                    rel="external"
+                                    class="text-center text-sm text-gray-500 hover:underline"
+                                >
+                                    "Sign out"
+                                </a>
+                            }
+                                .into_any()
+                        }
+                        _ => {
+                            view! {
+                                <a href="/auth/login" rel="external" class=LINK_BUTTON_CLASS>
+                                    "Sign in with ContestDojo"
+                                </a>
+                            }
+                                .into_any()
+                        }
+                    }
+                })}
+            </Suspense>
             <div class="relative">
                 <div aria-hidden="true" class="absolute inset-0 flex items-center">
                     <div class="w-full border-t border-gray-300" />

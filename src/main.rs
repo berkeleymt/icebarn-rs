@@ -3,6 +3,7 @@
 async fn main() {
     use axum::Router;
     use icebarn_rs::app::*;
+    use icebarn_rs::auth::server::AuthConfig;
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -34,18 +35,33 @@ async fn main() {
         .await
         .unwrap();
 
+    let auth_config = AuthConfig::from_env().await;
+    match &auth_config {
+        Some(_) => log!("ContestDojo OAuth enabled"),
+        None => log!(
+            "ContestDojo OAuth disabled (set OIDC_CLIENT_ID/OIDC_CLIENT_SECRET/OIDC_REDIRECT_URI/CONTESTDOJO_EVENT_ID to enable)"
+        ),
+    }
+
     let app = Router::new()
         .leptos_routes_with_context(
             &leptos_options,
             routes,
-            move || provide_context(pool.clone()),
+            {
+                let auth_config = auth_config.clone();
+                move || {
+                    provide_context(pool.clone());
+                    provide_context(auth_config.clone());
+                }
+            },
             {
                 let leptos_options = leptos_options.clone();
                 move || shell(leptos_options.clone())
             },
         )
         .fallback(leptos_axum::file_and_error_handler(shell))
-        .with_state(leptos_options);
+        .with_state(leptos_options)
+        .merge(icebarn_rs::auth::server::router(auth_config));
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
