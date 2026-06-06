@@ -17,6 +17,10 @@ pub enum Instr {
     SetOut(Pos, Dir),
     SetShading(Pos, Shading),
     RectSetShading { bl: Pos, tr: Pos, shading: Shading },
+    SetShaded(Pos),
+    RectSetShaded { bl: Pos, tr: Pos },
+    SetXmark(Pos),
+    RectSetXmark { bl: Pos, tr: Pos },
     SetText(Pos, String),
     AddArrow(Pos, Dir),
     AddPortal(Portal),
@@ -136,6 +140,26 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>, extra::Err<Rich<'a, 
             .then_ignore(inline_whitespace())
             .then(uint())
             .map(|(pos, region_id)| Instr::SetRegion(pos, region_id)),
+        just("RECT-SHADE")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .then_ignore(inline_whitespace())
+            .then(pos())
+            .map(|(bl, tr)| Instr::RectSetShaded { bl, tr }),
+        just("SHADE")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .map(Instr::SetShaded),
+        just("RECT-XMARK")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .then_ignore(inline_whitespace())
+            .then(pos())
+            .map(|(bl, tr)| Instr::RectSetXmark { bl, tr }),
+        just("XMARK")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .map(Instr::SetXmark),
         just("PATH")
             .then(inline_whitespace())
             .then(none_of('\n').repeated())
@@ -199,6 +223,22 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
             Instr::RectSetShading { bl, tr, shading } => {
                 for pos in Pos::rect(bl, tr) {
                     cells.entry(pos).or_default().set_shading(shading);
+                }
+            }
+            Instr::SetShaded(pos) => {
+                cells.entry(pos).or_default().set_shaded(true);
+            }
+            Instr::RectSetShaded { bl, tr } => {
+                for pos in Pos::rect(bl, tr) {
+                    cells.entry(pos).or_default().set_shaded(true);
+                }
+            }
+            Instr::SetXmark(pos) => {
+                cells.entry(pos).or_default().set_xmark(true);
+            }
+            Instr::RectSetXmark { bl, tr } => {
+                for pos in Pos::rect(bl, tr) {
+                    cells.entry(pos).or_default().set_xmark(true);
                 }
             }
             Instr::SetText(pos, text) => {
@@ -298,3 +338,4 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
         portals,
     })
 }
+

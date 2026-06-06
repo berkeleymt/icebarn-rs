@@ -117,6 +117,13 @@ pub struct Cell {
     pub portals: HashMap<Dir, u32>,
     #[serde(default)]
     pub region: Option<u32>,
+    /// Worked-example solution overlay: cell is shaded gray. Real puzzles leave
+    /// this `false`; player shading is tracked separately in [`State`](crate::editor::State).
+    #[serde(default)]
+    pub shaded: bool,
+    /// Worked-example solution overlay: cell is marked "definitely unshaded" (✕).
+    #[serde(default)]
+    pub xmark: bool,
 }
 
 impl Default for Cell {
@@ -127,6 +134,8 @@ impl Default for Cell {
             arrows: HashSet::default(),
             portals: HashMap::default(),
             region: None,
+            shaded: false,
+            xmark: false,
         }
     }
 }
@@ -155,6 +164,16 @@ impl Cell {
 
     pub fn set_region(&mut self, region: u32) -> &mut Self {
         self.region = Some(region);
+        self
+    }
+
+    pub fn set_shaded(&mut self, shaded: bool) -> &mut Self {
+        self.shaded = shaded;
+        self
+    }
+
+    pub fn set_xmark(&mut self, xmark: bool) -> &mut Self {
+        self.xmark = xmark;
         self
     }
 

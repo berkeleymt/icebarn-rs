@@ -1,161 +1,99 @@
 //! On-page worked examples for the Aqre puzzle round.
 //!
-//! Mirrors the examples in the printed BmMT 2026 Puzzle Round packet: a sample
-//! puzzle, its unique solution, and captioned incorrect solutions for the Basic
-//! rules and each variant.
-//!
-//! The puzzle data below is AUTO-GENERATED from the packet sources by
-//! `decode_examples.py` — do not edit the data tables by hand.
+//! Each diagram is a plain `.bpz` file in `examples/`, authored in the same
+//! format as the real puzzles ([`crate::puzzles`]) and parsed the same way; the
+//! `SHADE` / `XMARK` instructions encode the solution overlay. Captions and
+//! section copy mirror the printed BmMT 2026 Puzzle Round packet.
 
-use std::{collections::HashMap, sync::LazyLock};
+use std::sync::LazyLock;
 
 use leptos::prelude::*;
 
-use crate::{
-    bpz::{Cell, Pos, Puzzle, PuzzleType, Shading},
-    editor::PuzzleGrid,
-};
+use crate::{bpz::Puzzle, editor::PuzzleGrid};
 
-pub type Region = &'static [&'static [u32]];
-pub type Clues = &'static [&'static [i8]];
-pub type Cells = &'static [(usize, usize)];
-
-pub struct Diagram {
-    pub caption: &'static str,
-    pub shaded: Cells,
-    pub xmark: Cells,
+/// Parse a worked-example `.bpz` file (bundled at compile time) into a [`Puzzle`].
+macro_rules! example {
+    ($name:literal) => {
+        LazyLock::new(|| {
+            include_str!(concat!("examples/", $name, ".bpz"))
+                .parse()
+                .unwrap_or_else(|e| panic!("failed to parse example {}: {:?}", $name, e))
+        })
+    };
 }
 
-pub struct Family {
-    pub cols: usize,
-    pub rows: usize,
-    pub region: Region,
-    pub clues: Clues,
-    pub diagrams: &'static [Diagram],
-}
+static BASIC_SAMPLE: LazyLock<Puzzle> = example!("basic-sample");
+static BASIC_SOLUTION: LazyLock<Puzzle> = example!("basic-solution");
+static BASIC_BAD_CONNECTED: LazyLock<Puzzle> = example!("basic-bad-connected");
+static BASIC_BAD_COUNT: LazyLock<Puzzle> = example!("basic-bad-count");
+static BASIC_BAD_ROW: LazyLock<Puzzle> = example!("basic-bad-row");
 
-/// Build an AQRE [`Puzzle`] from a [`Family`]'s region + clue tables so worked
-/// examples render through the same [`PuzzleGrid`] as the real puzzles.
-///
-/// Family data is in display coordinates (row `0` is the top); puzzles place
-/// row `0` at the bottom, so rows are flipped here.
-fn family_to_puzzle(family: &Family) -> Puzzle {
-    let mut cells = HashMap::new();
-    for r in 0..family.rows {
-        for c in 0..family.cols {
-            let mut cell = Cell::default();
-            cell.set_shading(Shading::Default);
-            cell.set_region(family.region[r][c]);
-            let clue = family.clues[r][c];
-            if clue >= 0 {
-                cell.set_text(clue.to_string());
-            }
-            let pos = Pos {
-                row: (family.rows - 1 - r) as i32,
-                col: c as i32,
-            };
-            cells.insert(pos, cell);
-        }
-    }
-    Puzzle::from_cells(
-        Pos { row: 0, col: 0 },
-        Pos {
-            row: family.rows as i32 - 1,
-            col: family.cols as i32 - 1,
-        },
-        cells,
-        PuzzleType::Aqre,
-    )
-}
+static PAINT_SAMPLE: LazyLock<Puzzle> = example!("paint-sample");
+static PAINT_SOLUTION: LazyLock<Puzzle> = example!("paint-solution");
+static PAINT_BAD: LazyLock<Puzzle> = example!("paint-bad");
 
-/// An example grid with a caption underneath.
-#[component]
-fn ExampleDiagram(
-    puzzle: &'static Puzzle,
-    #[prop(optional)] shaded: Cells,
-    #[prop(optional)] xmark: Cells,
-    caption: &'static str,
-) -> impl IntoView {
+static SPIRAL_SAMPLE: LazyLock<Puzzle> = example!("spiral-sample");
+static SPIRAL_SOLUTION: LazyLock<Puzzle> = example!("spiral-solution");
+static SPIRAL_BAD: LazyLock<Puzzle> = example!("spiral-bad");
+
+static BINARIO_SAMPLE: LazyLock<Puzzle> = example!("binario-sample");
+static BINARIO_SOLUTION: LazyLock<Puzzle> = example!("binario-solution");
+static BINARIO_BAD: LazyLock<Puzzle> = example!("binario-bad");
+
+static SPIRAL_SYM_1: LazyLock<Puzzle> = example!("spiral-sym-1");
+static SPIRAL_SYM_2: LazyLock<Puzzle> = example!("spiral-sym-2");
+static SPIRAL_SYM_3: LazyLock<Puzzle> = example!("spiral-sym-3");
+static SPIRAL_SYM_4: LazyLock<Puzzle> = example!("spiral-sym-4");
+
+/// A single captioned example grid.
+fn diagram(puzzle: &'static Puzzle, caption: &'static str) -> AnyView {
     view! {
         <figure class="flex flex-col items-center gap-2 w-40 m-0">
-            <PuzzleGrid puzzle=puzzle shaded=shaded xmark=xmark />
+            <PuzzleGrid puzzle=puzzle />
             <figcaption class="text-xs text-gray-600 text-center text-balance">{caption}</figcaption>
         </figure>
     }
+    .into_any()
 }
 
-fn diagram_views(
-    puzzle: &'static Puzzle,
-    family: &'static Family,
-    range: std::ops::Range<usize>,
-) -> Vec<AnyView> {
-    family.diagrams[range]
-        .iter()
-        .map(|d| {
-            view! {
-                <ExampleDiagram
-                    puzzle=puzzle
-                    shaded=d.shaded
-                    xmark=d.xmark
-                    caption=d.caption
-                />
-            }
-            .into_any()
-        })
-        .collect()
+/// A wrapping row of captioned grids.
+fn diagram_row(items: impl IntoIterator<Item = (&'static Puzzle, &'static str)>) -> impl IntoView {
+    let views = items
+        .into_iter()
+        .map(|(puzzle, caption)| diagram(puzzle, caption))
+        .collect::<Vec<_>>();
+    view! { <div class="flex flex-wrap gap-6 items-start">{views}</div> }
 }
 
+/// A variant section: an optional heading, intro text, the sample puzzle next to
+/// its correct solution(s), and (optionally) a row of incorrect solutions.
 #[component]
 fn ExampleSection(
-    title: &'static str,
+    #[prop(optional)] title: &'static str,
     intro: &'static str,
-    puzzle: &'static Puzzle,
-    family: &'static Family,
-    /// How many leading diagrams are "correct" (shown next to the sample puzzle).
-    correct: usize,
+    sample: &'static Puzzle,
+    correct: Vec<(&'static Puzzle, &'static str)>,
+    #[prop(optional)] incorrect: Vec<(&'static Puzzle, &'static str)>,
 ) -> impl IntoView {
+    let has_incorrect = !incorrect.is_empty();
     view! {
         <section class="flex flex-col gap-3">
-            <h4 class="font-semibold">{title}</h4>
+            {(!title.is_empty()).then(|| view! { <h4 class="font-semibold">{title}</h4> })}
             <p>{intro}</p>
-            <div class="flex flex-wrap gap-6 items-start">
-                <ExampleDiagram puzzle=puzzle caption="Sample puzzle" />
-                {diagram_views(puzzle, family, 0..correct)}
-            </div>
-            {(family.diagrams.len() > correct)
+            {diagram_row(std::iter::once((sample, "Sample puzzle")).chain(correct))}
+            {has_incorrect
                 .then(|| {
                     view! {
                         <p>"Here are some incorrect solutions:"</p>
-                        <div class="flex flex-wrap gap-6 items-start">
-                            {diagram_views(puzzle, family, correct..family.diagrams.len())}
-                        </div>
+                        {diagram_row(incorrect)}
                     }
                 })}
         </section>
     }
 }
 
-static BASIC_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&BASIC));
-static PAINT_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&PAINT));
-static SPIRAL_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&SPIRAL));
-static BINARIO_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&BINARIO));
-static SPIRAL_SYMMETRY_PUZZLES: LazyLock<Vec<Puzzle>> =
-    LazyLock::new(|| SPIRAL_SYMMETRY.iter().map(family_to_puzzle).collect());
-
 #[component]
 pub fn Examples() -> impl IntoView {
-    let symmetry = SPIRAL_SYMMETRY
-        .iter()
-        .zip(SPIRAL_SYMMETRY_PUZZLES.iter())
-        .map(|(f, puzzle)| {
-            let d = &f.diagrams[0];
-            view! {
-                <ExampleDiagram puzzle=puzzle shaded=d.shaded xmark=d.xmark caption=d.caption />
-            }
-            .into_any()
-        })
-        .collect::<Vec<_>>();
-
     view! {
         <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-6">
             <div class="flex flex-col gap-2">
@@ -170,17 +108,21 @@ pub fn Examples() -> impl IntoView {
             <ExampleSection
                 title="Basic"
                 intro="To solve the puzzle, shade cells so that all the Basic rules hold. This sample puzzle has exactly one solution:"
-                puzzle=&BASIC_PUZZLE
-                family=&BASIC
-                correct=1
+                sample=&BASIC_SAMPLE
+                correct=vec![(&*BASIC_SOLUTION, "The only correct solution.")]
+                incorrect=vec![
+                    (&*BASIC_BAD_CONNECTED, "Shaded cells are not orthogonally connected."),
+                    (&*BASIC_BAD_COUNT, "Wrong number of shaded cells in two regions."),
+                    (&*BASIC_BAD_ROW, "Four shaded cells and four unshaded cells in a row."),
+                ]
             />
 
             <ExampleSection
                 title="Paint"
                 intro="In addition to the Basic rules, each outlined region must be either fully shaded or fully unshaded:"
-                puzzle=&PAINT_PUZZLE
-                family=&PAINT
-                correct=1
+                sample=&PAINT_SAMPLE
+                correct=vec![(&*PAINT_SOLUTION, "Correct! Each region is fully shaded or unshaded.")]
+                incorrect=vec![(&*PAINT_BAD, "Incorrect. One region is not fully shaded or unshaded.")]
             />
 
             <section class="flex flex-col gap-3">
@@ -188,154 +130,39 @@ pub fn Examples() -> impl IntoView {
                 <p>
                     "In addition to the Basic rules, the shaded cells in each region must have 180° rotational symmetry about the region's center:"
                 </p>
-                <div class="flex flex-wrap gap-6 items-start">{symmetry}</div>
+                {diagram_row([
+                    (&*SPIRAL_SYM_1, "Correct symmetry!"),
+                    (&*SPIRAL_SYM_2, "Correct symmetry!"),
+                    (&*SPIRAL_SYM_3, "Incorrect symmetry! Reflectional, but not rotational, symmetry."),
+                    (&*SPIRAL_SYM_4, "Incorrect symmetry! Rotational, but not about the region's center."),
+                ])}
             </section>
             <ExampleSection
-                title=""
                 intro="Putting it together, this sample Spiral puzzle has exactly one solution:"
-                puzzle=&SPIRAL_PUZZLE
-                family=&SPIRAL
-                correct=1
+                sample=&SPIRAL_SAMPLE
+                correct=vec![
+                    (
+                        &*SPIRAL_SOLUTION,
+                        "Correct! All regions have 180° rotational symmetry about their centers.",
+                    ),
+                ]
+                incorrect=vec![
+                    (
+                        &*SPIRAL_BAD,
+                        "Incorrect. One region does not have 180° rotational symmetry about its center.",
+                    ),
+                ]
             />
 
             <ExampleSection
                 title="Binario"
                 intro="In addition to the Basic rules, each row (but not necessarily each column) must have the same number of shaded and unshaded cells:"
-                puzzle=&BINARIO_PUZZLE
-                family=&BINARIO
-                correct=1
+                sample=&BINARIO_SAMPLE
+                correct=vec![(&*BINARIO_SOLUTION, "Correct! Each row has two shaded and two unshaded cells.")]
+                incorrect=vec![
+                    (&*BINARIO_BAD, "Incorrect. Rows 1 and 2 don't have equal numbers of shaded and unshaded cells."),
+                ]
             />
         </div>
     }
 }
-
-// ── AUTO-GENERATED DATA (decode_examples.py) ───────────────────────────────
-
-pub static BASIC: Family = Family {
-    cols: 4,
-    rows: 4,
-    region: &[&[0, 0, 1, 1], &[0, 2, 2, 1], &[3, 4, 4, 5], &[3, 3, 4, 5]],
-    clues: &[&[3, -1, 2, -1], &[-1, -1, -1, -1], &[1, 0, -1, -1], &[-1, -1, -1, -1]],
-    diagrams: &[
-        Diagram {
-            caption: "The only correct solution.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (1, 3), (2, 0), (2, 3), (3, 3)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Shaded cells are not orthogonally connected.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (1, 0), (1, 3), (2, 3), (3, 1)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Wrong number of shaded cells in two regions.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (1, 3), (2, 0), (2, 1), (3, 1)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Four shaded cells and four unshaded cells in a row.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (2, 0)],
-            xmark: &[(3, 0), (3, 1), (3, 2), (3, 3)],
-        },
-    ],
-};
-
-pub static PAINT: Family = Family {
-    cols: 4,
-    rows: 4,
-    region: &[&[0, 0, 0, 1], &[2, 0, 3, 1], &[2, 4, 4, 1], &[2, 2, 4, 5]],
-    clues: &[&[-1, -1, -1, -1], &[-1, -1, -1, -1], &[-1, -1, -1, -1], &[-1, -1, -1, -1]],
-    diagrams: &[
-        Diagram {
-            caption: "Correct! Each region is fully shaded or unshaded.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (1, 1), (2, 1), (2, 2), (3, 2), (3, 3)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Incorrect. One region is not fully shaded or unshaded.",
-            shaded: &[(0, 0), (0, 1), (0, 2), (1, 1), (1, 3), (2, 1), (2, 2), (2, 3), (3, 2)],
-            xmark: &[(0, 3)],
-        },
-    ],
-};
-
-pub static SPIRAL: Family = Family {
-    cols: 4,
-    rows: 4,
-    region: &[&[0, 0, 0, 1], &[2, 2, 2, 2], &[2, 2, 2, 2], &[3, 3, 3, 4]],
-    clues: &[&[2, -1, -1, 1], &[-1, -1, -1, -1], &[-1, -1, -1, -1], &[1, -1, -1, 0]],
-    diagrams: &[
-        Diagram {
-            caption: "Correct! All regions have 180° rotational symmetry about their centers.",
-            shaded: &[(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 1)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Incorrect. One region does not have 180° rotational symmetry about its center.",
-            shaded: &[(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1)],
-            xmark: &[(1, 2), (2, 0)],
-        },
-    ],
-};
-
-pub static BINARIO: Family = Family {
-    cols: 4,
-    rows: 4,
-    region: &[&[0, 0, 1, 2], &[0, 0, 1, 2], &[3, 3, 4, 5], &[3, 3, 4, 4]],
-    clues: &[&[3, -1, 1, -1], &[-1, -1, -1, -1], &[1, -1, -1, 1], &[-1, -1, -1, -1]],
-    diagrams: &[
-        Diagram {
-            caption: "Correct! Each row has two shaded and two unshaded cells.",
-            shaded: &[(0, 0), (0, 1), (1, 1), (1, 2), (2, 2), (2, 3), (3, 1), (3, 2)],
-            xmark: &[],
-        },
-        Diagram {
-            caption: "Incorrect. Rows 1 and 2 don't have equal numbers of shaded and unshaded cells.",
-            shaded: &[(0, 0), (1, 0), (1, 1), (1, 2), (2, 2), (2, 3), (3, 1), (3, 2)],
-            xmark: &[],
-        },
-    ],
-};
-
-pub static SPIRAL_SYMMETRY: &[Family] = &[
-    Family {
-        cols: 4,
-        rows: 2,
-        region: &[&[0, 0, 0, 0], &[0, 0, 0, 0]],
-        clues: &[&[-1, -1, -1, -1], &[-1, -1, -1, -1]],
-        diagrams: &[Diagram { caption: "Correct symmetry!", shaded: &[(0, 0), (1, 3)], xmark: &[] }],
-    },
-    Family {
-        cols: 4,
-        rows: 2,
-        region: &[&[0, 0, 0, 0], &[0, 0, 0, 0]],
-        clues: &[&[-1, -1, -1, -1], &[-1, -1, -1, -1]],
-        diagrams: &[Diagram {
-            caption: "Correct symmetry!",
-            shaded: &[(0, 1), (0, 2), (1, 1), (1, 2)],
-            xmark: &[],
-        }],
-    },
-    Family {
-        cols: 4,
-        rows: 2,
-        region: &[&[0, 0, 0, 0], &[0, 0, 0, 0]],
-        clues: &[&[-1, -1, -1, -1], &[-1, -1, -1, -1]],
-        diagrams: &[Diagram {
-            caption: "Incorrect symmetry! Reflectional, but not rotational, symmetry.",
-            shaded: &[(0, 1), (0, 2), (1, 0), (1, 3)],
-            xmark: &[],
-        }],
-    },
-    Family {
-        cols: 4,
-        rows: 2,
-        region: &[&[0, 0, 0, 0], &[0, 0, 0, 0]],
-        clues: &[&[-1, -1, -1, -1], &[-1, -1, -1, -1]],
-        diagrams: &[Diagram {
-            caption: "Incorrect symmetry! Rotational, but not about the region's center.",
-            shaded: &[(0, 1), (0, 2), (1, 0), (1, 1)],
-            xmark: &[],
-        }],
-    },
-];
