@@ -1,7 +1,9 @@
 pub mod board;
 mod cell;
+mod grid;
 mod state;
 mod util;
+pub use grid::PuzzleGrid;
 pub use state::State;
 
 use std::{cmp::Ordering, collections::HashMap, time::Duration};
@@ -137,25 +139,27 @@ pub fn PuzzleEditor<'a, T: Board>(
                 </table>
                 {portals}
             </div>
-            {move || {
-                if clearing.get() {
-                    view! {
-                        <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
-                            <Trash attr:class="w-4 h-4" />
-                            "Click again to confirm"
-                        </Button>
+            <div class="flex">
+                {move || {
+                    if clearing.get() {
+                        view! {
+                            <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
+                                <Trash attr:class="w-4 h-4" />
+                                "Click again to confirm"
+                            </Button>
+                        }
+                            .into_any()
+                    } else {
+                        view! {
+                            <Button color={ButtonColor::Ghost} {..} type="button" on:click=clear>
+                                <Trash attr:class="w-4 h-4" />
+                                "Clear"
+                            </Button>
+                        }
+                            .into_any()
                     }
-                        .into_any()
-                } else {
-                    view! {
-                        <Button color={ButtonColor::Warning} {..} type="button" on:click=clear>
-                            <Trash attr:class="w-4 h-4" />
-                            "Clear"
-                        </Button>
-                    }
-                        .into_any()
-                }
-            }}
+                }}
+            </div>
         </div>
     }
 }

@@ -9,8 +9,12 @@ use leptos_router::{
 };
 
 use crate::{
-    components::{button::Button, input::Input},
+    components::{
+        button::{Button, ButtonColor},
+        input::Input,
+    },
     editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
+    examples::Examples,
     heroicons::solid::{NoSignal, Signal},
     puzzles::PUZZLES,
     realtime::connect_client,
@@ -50,7 +54,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/icebarn-rs.css" />
 
         // sets the document title
-        <Title text="BmMT 2025 Online Puzzle Round" />
+        <Title text="BmMT 2026 Online Puzzle Round" />
 
         // content for this welcome page
         <Router>
@@ -92,8 +96,14 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-full min-h-screen max-w-128 justify-center p-8 gap-8">
-            <form class="flex gap-4" on:submit=join_team>
+        <div class="mx-auto flex flex-col w-full min-h-screen max-w-sm justify-center p-6 gap-6">
+            <div class="flex flex-col gap-1 text-center">
+                <h1 class="text-2xl font-bold">"BmMT 2026 Puzzle Round"</h1>
+                <p class="text-sm text-gray-500">
+                    "Join your team with your password, or solve on your own."
+                </p>
+            </div>
+            <form class="flex gap-3" on:submit=join_team>
                 <Input {..} node_ref=input_element placeholder="Enter team password..." />
                 <Button {..}>"Join Team"</Button>
             </form>
@@ -105,7 +115,7 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
                     <span class="bg-white px-2 text-sm text-gray-500">or</span>
                 </div>
             </div>
-            <Button {..} on:click=move |_| set_mode.set(Mode::Singleplayer)>
+            <Button color={ButtonColor::Ghost} {..} on:click=move |_| set_mode.set(Mode::Singleplayer)>
                 Singleplayer
             </Button>
         </div>
@@ -126,19 +136,23 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
         move || {
             if client.heartbeat_state.is_connected.get() {
                 view! {
-                    <Signal {..} class="w-6 h-6" />
-                    "Connected. Your team's updates will sync in real-time."
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm font-medium">
+                        <Signal {..} class="w-4 h-4" />
+                        "Connected — your team's updates sync in real-time."
+                    </span>
                 }
                 .into_any()
             } else {
                 view! {
-                    <NoSignal {..} class="w-6 h-6 text-red-500" />
-                    {client
-                        .heartbeat_state
-                        .fatal_error
-                        .read()
-                        .as_deref()
-                        .unwrap_or("Disconnected. If this persists, try reloading the page.")}
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 text-red-800 px-3 py-1 text-sm font-medium">
+                        <NoSignal {..} class="w-4 h-4" />
+                        {client
+                            .heartbeat_state
+                            .fatal_error
+                            .read()
+                            .as_deref()
+                            .unwrap_or("Disconnected. If this persists, try reloading the page.")}
+                    </span>
                 }
                 .into_any()
             }
@@ -163,8 +177,8 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
                     Leave Room
                 </Button>
             </div>
-            <Rules />
             <Show when=ready>
+                <Rules />
                 {if let Some(state) = &*client.editor_state.read() {
                     state
                         .iter()
@@ -200,7 +214,10 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     view! {
         <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
             <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
-                "Singleplayer mode" <div class="flex-1" /> <Button {..} on:click=leave_room>
+                <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-3 py-1 text-sm font-medium">
+                    "Singleplayer mode"
+                </span> <div class="flex-1" />
+                <Button color={ButtonColor::Danger} {..} on:click=leave_room>
                     Close and Delete Game
                 </Button>
             </div>
@@ -269,5 +286,7 @@ fn Rules() -> impl IntoView {
             </p>
             <p>"You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"</p>
         </div>
+
+        <Examples />
     }
 }

@@ -117,6 +117,13 @@ pub struct Cell {
     pub portals: HashMap<Dir, u32>,
     #[serde(default)]
     pub region: Option<u32>,
+    /// Worked-example solution overlay: cell is shaded gray. Real puzzles leave
+    /// this `false`; player shading is tracked separately in [`State`](crate::editor::State).
+    #[serde(default)]
+    pub shaded: bool,
+    /// Worked-example solution overlay: cell is marked "definitely unshaded" (✕).
+    #[serde(default)]
+    pub xmark: bool,
 }
 
 impl Default for Cell {
@@ -127,6 +134,8 @@ impl Default for Cell {
             arrows: HashSet::default(),
             portals: HashMap::default(),
             region: None,
+            shaded: false,
+            xmark: false,
         }
     }
 }
@@ -155,6 +164,16 @@ impl Cell {
 
     pub fn set_region(&mut self, region: u32) -> &mut Self {
         self.region = Some(region);
+        self
+    }
+
+    pub fn set_shaded(&mut self, shaded: bool) -> &mut Self {
+        self.shaded = shaded;
+        self
+    }
+
+    pub fn set_xmark(&mut self, xmark: bool) -> &mut Self {
+        self.xmark = xmark;
         self
     }
 
@@ -201,5 +220,27 @@ impl FromStr for Puzzle {
 impl Puzzle {
     pub fn get_cell(&self, pos: Pos) -> &Cell {
         self.cells.get(&pos).unwrap_or(&self.default_cell)
+    }
+
+    /// Build a puzzle directly from a map of cells (e.g. for static worked
+    /// examples). Cells outside the map are treated as removed, so the grid's
+    /// outer edge renders with a boundary border.
+    pub fn from_cells(
+        bl: Pos,
+        tr: Pos,
+        cells: HashMap<Pos, Cell>,
+        puzzle_type: PuzzleType,
+    ) -> Self {
+        Puzzle {
+            bl,
+            tr,
+            portals: Vec::new(),
+            default_cell: Cell {
+                shading: Shading::Removed,
+                ..Cell::default()
+            },
+            cells,
+            puzzle_type,
+        }
     }
 }
