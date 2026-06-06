@@ -215,7 +215,7 @@ fn Rules() -> impl IntoView {
     view! {
         <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-2">
             <h3 class="text-lg font-semibold">Rules</h3>
-            <p>"Welcome to the BmMT 2025 Online Puzzle Round!"</p>
+            <p>"Welcome to the BmMT 2026 Online Puzzle Round!"</p>
             <p>"Here are the rules for the Puzzle Round. Please read them in detail!"</p>
             <p>
                 <a href="/rules.pdf" target="_blank" class="text-blue-500 hover:underline">
@@ -230,27 +230,44 @@ fn Rules() -> impl IntoView {
                 "Here are some brief instructions on how to use this software to enter your answers for the Puzzle Round. Keep in mind that — unless you are in singleplayer mode — your whole team sees the same grids, and any team member's edits are immediately visible to everyone on the team."
             </p>
 
+            <p>
+                "To solve an Aqre puzzle, shade some of the cells in the grid so that all of the following rules are satisfied:"
+            </p>
+
+            <ul class="ml-8 list-disc flex flex-col gap-1">
+                <li>"Each cell is either completely shaded or completely unshaded."</li>
+                <li>
+                    "All shaded cells are orthogonally connected — you can travel from any shaded cell to any other shaded cell through shaded cells that share a side (no diagonals)."
+                </li>
+                <li>
+                    "There is no run of four or more consecutive shaded cells, or four or more consecutive unshaded cells, in any row or column."
+                </li>
+                <li>
+                    "If an outlined region (a group of cells outlined in bold) contains a number, then exactly that many cells in that region are shaded."
+                </li>
+            </ul>
+
+            <p>"Some variants add an extra rule on top of the Basic rules above:"</p>
+
             <ul class="ml-8 list-disc flex flex-col gap-1">
                 <li>
-                    "To get credit for solving the puzzle, you will have to draw a single, continuous path starting from the IN arrow (outside the grid) and ending at the OUT square (also outside the grid)."
+                    <span class="font-semibold">"Paint: "</span>
+                    "each outlined region must be either fully shaded or fully unshaded."
                 </li>
                 <li>
-                    "To draw lines, you can either left-click and drag from one box to another, or left-click on two different cells to connect them with the straightest line that can go between them."
+                    <span class="font-semibold">"Spiral: "</span>
+                    "the shaded cells in each outlined region must have 180° rotational symmetry about the region's center."
                 </li>
                 <li>
-                    "To erase lines, you can left-click and drag across lines that are already drawn. Also, while you're dragging to draw a line, you can drag over your most recently drawn segment to erase it."
-                </li>
-                <li>
-                    "You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"
-                </li>
-                <li>
-                    "Don't draw outside the boundary of the puzzle, except for the IN and OUT squares, even if the software lets you!"
+                    <span class="font-semibold">"Binario: "</span>
+                    "each row (but not necessarily each column) must have the same number of shaded and unshaded cells."
                 </li>
             </ul>
 
             <p>
-                "Also, for Black Ice puzzles, it may be helpful to shade in potential ice squares. You can do this by right-clicking (or, on a Mac trackpad, clicking with two fingers) on a square to mark/unmark it as an ice square. This will not be graded."
+                "To shade a cell, left-click it; click and drag to shade or unshade several cells at once. Click a shaded cell again to unshade it. Only shaded cells count — leave unshaded cells unmarked."
             </p>
+            <p>"You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"</p>
         </div>
     }
 }

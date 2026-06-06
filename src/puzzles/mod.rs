@@ -13,19 +13,21 @@ pub static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
         bpz!("Basic 1", "./basic-1.bpz"),
         bpz!("Basic 2", "./basic-2.bpz"),
         bpz!("Basic 3", "./basic-3.bpz"),
-        bpz!("World Tour 1", "./world-tour-1.bpz"),
-        bpz!("World Tour 2", "./world-tour-2.bpz"),
-        bpz!("World Tour 3", "./world-tour-3.bpz"),
-        bpz!("Drive-Thru 1", "./drive-thru-1.bpz"),
-        bpz!("Drive-Thru 2", "./drive-thru-2.bpz"),
-        bpz!("Drive-Thru 3", "./drive-thru-3.bpz"),
-        bpz!("Black Ice 1", "./black-ice-1.bpz"),
-        bpz!("Black Ice 2", "./black-ice-2.bpz"),
-        bpz!("Black Ice 3", "./black-ice-3.bpz"),
+        bpz!("Basic 4", "./basic-4.bpz"),
+        bpz!("Basic 5", "./basic-5.bpz"),
+        bpz!("Paint 1", "./paint-1.bpz"),
+        bpz!("Paint 2", "./paint-2.bpz"),
+        bpz!("Paint 3", "./paint-3.bpz"),
+        bpz!("Spiral 1", "./spiral-1.bpz"),
+        bpz!("Spiral 2", "./spiral-2.bpz"),
+        bpz!("Spiral 3", "./spiral-3.bpz"),
+        bpz!("Binario 1", "./binario-1.bpz"),
+        bpz!("Binario 2", "./binario-2.bpz"),
+        bpz!("Binario 3", "./binario-3.bpz"),
         bpz!("Challenge 1 (Basic)", "./challenge-1.bpz"),
-        bpz!("Challenge 2 (World Tour)", "./challenge-2.bpz"),
-        bpz!("Challenge 3 (Drive-Thru)", "./challenge-3.bpz"),
-        bpz!("Challenge 4 (Black Ice)", "./challenge-4.bpz"),
+        bpz!("Challenge 2 (Paint)", "./challenge-2.bpz"),
+        bpz!("Challenge 3 (Spiral)", "./challenge-3.bpz"),
+        bpz!("Challenge 4 (Binario)", "./challenge-4.bpz"),
     ]
     .into_iter()
     .map(|(name, src)| {
@@ -36,3 +38,4 @@ pub static PUZZLES: LazyLock<Vec<(&'static str, Puzzle)>> = LazyLock::new(|| {
     })
     .collect()
 });
+
