@@ -35,7 +35,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let auth_config = AuthConfig::from_env();
+    let auth_config = AuthConfig::from_env().await;
     match &auth_config {
         Some(_) => log!("ContestDojo OAuth enabled"),
         None => log!(

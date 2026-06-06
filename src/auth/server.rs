@@ -11,8 +11,13 @@ use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use hmac::{Hmac, Mac};
 use leptos::prelude::use_context;
+use openidconnect::{
+    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
+    AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce,
+    OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope,
+};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 use crate::auth::TeamSession;
 
@@ -20,68 +25,74 @@ type HmacSha256 = Hmac<Sha256>;
 
 const DEFAULT_ISSUER: &str = "https://contestdojo.com/api/oidc";
 const DEFAULT_API_BASE: &str = "https://api.contestdojo.com";
-const SCOPE: &str = "openid profile email read:events";
 
 const TEAM_COOKIE: &str = "team";
 const STATE_COOKIE: &str = "oidc_state";
 const VERIFIER_COOKIE: &str = "oidc_verifier";
+const NONCE_COOKIE: &str = "oidc_nonce";
 
-/// Session lifetime for the signed `team` cookie (8 hours — enough for the round).
 const SESSION_MAX_AGE_SECS: i64 = 8 * 60 * 60;
-/// Short lifetime for the in-flight PKCE/state cookies.
 const FLOW_MAX_AGE_SECS: i64 = 10 * 60;
 
-/// OAuth/OIDC configuration, read from the environment at startup. `None` (see
-/// [`AuthState`]) means OAuth is not configured and the sign-in routes render a
-/// helpful message instead of attempting a flow.
+/// OIDC configuration. Provider metadata (JWKS, endpoints) is discovered at
+/// startup; the client is rebuilt per-request (cheap struct construction) so
+/// we avoid needing to name the openidconnect typestate generics.
 #[derive(Clone)]
 pub struct AuthConfig {
-    issuer: String,
+    metadata: CoreProviderMetadata,
+    http_client: reqwest::Client,
+    client_id: ClientId,
+    client_secret: ClientSecret,
+    redirect_uri: RedirectUrl,
     api_base: String,
-    client_id: String,
-    client_secret: String,
-    redirect_uri: String,
     event_id: String,
     session_secret: String,
 }
 
-/// Shared auth configuration handle provided to both the axum auth routes and
-/// the Leptos server functions / websocket handler.
 pub type AuthState = Option<Arc<AuthConfig>>;
 
 impl AuthConfig {
-    /// Build config from environment variables. Requires `OIDC_CLIENT_ID`,
-    /// `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, and `CONTESTDOJO_EVENT_ID`.
-    /// `OIDC_ISSUER` / `CONTESTDOJO_API_BASE` default to production ContestDojo.
-    /// `SESSION_SECRET` signs the session cookie; a random one is generated if
-    /// unset (which invalidates existing sessions on restart).
-    pub fn from_env() -> AuthState {
+    /// Discover OIDC provider metadata and build config from env vars.
+    /// Returns `None` if required vars are missing (OAuth disabled).
+    pub async fn from_env() -> AuthState {
         let client_id = std::env::var("OIDC_CLIENT_ID").ok()?;
         let client_secret = std::env::var("OIDC_CLIENT_SECRET").ok()?;
         let redirect_uri = std::env::var("OIDC_REDIRECT_URI").ok()?;
         let event_id = std::env::var("CONTESTDOJO_EVENT_ID").ok()?;
+        let issuer = std::env::var("OIDC_ISSUER").unwrap_or_else(|_| DEFAULT_ISSUER.into());
 
         let session_secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| {
-            leptos::logging::warn!(
-                "SESSION_SECRET not set; generating a random one (sessions reset on restart)"
-            );
-            random_token()
+            leptos::logging::warn!("SESSION_SECRET not set; sessions will reset on restart");
+            let mut buf = [0u8; 32];
+            getrandom::getrandom(&mut buf).expect("system RNG");
+            URL_SAFE_NO_PAD.encode(buf)
         });
 
+        let http_client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .ok()?;
+
+        let issuer_url = IssuerUrl::new(issuer).ok()?;
+        let metadata = CoreProviderMetadata::discover_async(issuer_url, &http_client)
+            .await
+            .map_err(|e| leptos::logging::error!("OIDC discovery failed: {e}"))
+            .ok()?;
+
         Some(Arc::new(Self {
-            issuer: std::env::var("OIDC_ISSUER").unwrap_or_else(|_| DEFAULT_ISSUER.into()),
+            metadata,
+            http_client,
+            client_id: ClientId::new(client_id),
+            client_secret: ClientSecret::new(client_secret),
+            redirect_uri: RedirectUrl::new(redirect_uri).ok()?,
             api_base: std::env::var("CONTESTDOJO_API_BASE")
                 .unwrap_or_else(|_| DEFAULT_API_BASE.into()),
-            client_id,
-            client_secret,
-            redirect_uri,
             event_id,
             session_secret,
         }))
     }
 }
 
-/// The auth routes: `/auth/login`, `/auth/callback`, `/auth/logout`.
 pub fn router(state: AuthState) -> Router {
     Router::new()
         .route("/auth/login", get(login))
@@ -90,19 +101,7 @@ pub fn router(state: AuthState) -> Router {
         .with_state(state)
 }
 
-// --- crypto / encoding helpers ---------------------------------------------
-
-fn random_token() -> String {
-    let mut buf = [0u8; 32];
-    getrandom::getrandom(&mut buf).expect("system RNG");
-    URL_SAFE_NO_PAD.encode(buf)
-}
-
-fn pkce_challenge(verifier: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(verifier.as_bytes());
-    URL_SAFE_NO_PAD.encode(hasher.finalize())
-}
+// --- session cookie (HMAC-SHA256 signed, app-specific) ----------------------
 
 fn sign(secret: &str, payload: &str) -> String {
     let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key size");
@@ -119,7 +118,6 @@ fn verify(secret: &str, payload: &str, signature: &str) -> bool {
     mac.verify_slice(&sig).is_ok()
 }
 
-/// Encode a [`TeamSession`] as a tamper-proof `<base64(json)>.<hmac>` string.
 fn encode_session(cfg: &AuthConfig, team: &TeamSession) -> String {
     let json = serde_json::to_string(team).expect("TeamSession serializes");
     let payload = URL_SAFE_NO_PAD.encode(json.as_bytes());
@@ -127,7 +125,6 @@ fn encode_session(cfg: &AuthConfig, team: &TeamSession) -> String {
     format!("{payload}.{signature}")
 }
 
-/// Verify and decode a session cookie produced by [`encode_session`].
 fn decode_session(cfg: &AuthConfig, value: &str) -> Option<TeamSession> {
     let (payload, signature) = value.split_once('.')?;
     if !verify(&cfg.session_secret, payload, signature) {
@@ -136,6 +133,8 @@ fn decode_session(cfg: &AuthConfig, value: &str) -> Option<TeamSession> {
     let json = URL_SAFE_NO_PAD.decode(payload).ok()?;
     serde_json::from_slice(&json).ok()
 }
+
+// --- cookie + HTML helpers --------------------------------------------------
 
 fn flow_cookie(name: &'static str, value: String) -> Cookie<'static> {
     let mut cookie = Cookie::new(name, value);
@@ -186,13 +185,6 @@ fn error_page_with_identity(message: &str, signed_in_as: Option<&str>) -> Respon
     .into_response()
 }
 
-/// Decode (without verifying) the claims payload of a JWT.
-fn decode_jwt_claims<T: serde::de::DeserializeOwned>(jwt: &str) -> Option<T> {
-    let payload = jwt.split('.').nth(1)?;
-    let bytes = URL_SAFE_NO_PAD.decode(payload).ok()?;
-    serde_json::from_slice(&bytes).ok()
-}
-
 // --- route handlers ---------------------------------------------------------
 
 async fn login(State(state): State<AuthState>) -> Response {
@@ -200,25 +192,33 @@ async fn login(State(state): State<AuthState>) -> Response {
         return error_page("Sign-in is not configured on this server yet.");
     };
 
-    let verifier = random_token();
-    let csrf_state = random_token();
-    let challenge = pkce_challenge(&verifier);
+    let client = CoreClient::from_provider_metadata(
+        cfg.metadata.clone(),
+        cfg.client_id.clone(),
+        Some(cfg.client_secret.clone()),
+    )
+    .set_redirect_uri(cfg.redirect_uri.clone());
 
-    let auth_url = format!(
-        "{issuer}/auth?client_id={client_id}&response_type=code&redirect_uri={redirect}&scope={scope}&state={state}&code_challenge={challenge}&code_challenge_method=S256",
-        issuer = cfg.issuer,
-        client_id = urlencoding::encode(&cfg.client_id),
-        redirect = urlencoding::encode(&cfg.redirect_uri),
-        scope = urlencoding::encode(SCOPE),
-        state = urlencoding::encode(&csrf_state),
-        challenge = urlencoding::encode(&challenge),
-    );
+    let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+
+    let (auth_url, csrf_state, nonce) = client
+        .authorize_url(
+            CoreAuthenticationFlow::AuthorizationCode,
+            CsrfToken::new_random,
+            Nonce::new_random,
+        )
+        .add_scope(Scope::new("profile".to_string()))
+        .add_scope(Scope::new("email".to_string()))
+        .add_scope(Scope::new("read:events".to_string()))
+        .set_pkce_challenge(pkce_challenge)
+        .url();
 
     let jar = CookieJar::new()
-        .add(flow_cookie(STATE_COOKIE, csrf_state))
-        .add(flow_cookie(VERIFIER_COOKIE, verifier));
+        .add(flow_cookie(STATE_COOKIE, csrf_state.secret().clone()))
+        .add(flow_cookie(VERIFIER_COOKIE, pkce_verifier.secret().clone()))
+        .add(flow_cookie(NONCE_COOKIE, nonce.secret().clone()));
 
-    (jar, Redirect::to(&auth_url)).into_response()
+    (jar, Redirect::to(auth_url.as_str())).into_response()
 }
 
 #[derive(Debug, Deserialize)]
@@ -228,20 +228,10 @@ struct CallbackParams {
     error: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct TokenResponse {
-    access_token: String,
-    #[serde(default)]
-    id_token: Option<String>,
-}
-
-/// Identity claims embedded in the OIDC `id_token` (scopes `profile`, `email`).
-#[derive(Debug, Deserialize)]
-struct IdClaims {
-    #[serde(default)]
-    email: Option<String>,
-    #[serde(default)]
-    name: Option<String>,
+/// ContestDojo UserInfo; we only need the custom `type` field (standard claims
+/// come from the verified id_token).
+#[derive(Deserialize)]
+struct UserInfo {
     #[serde(default, rename = "type")]
     acct_type: Option<String>,
 }
@@ -277,12 +267,12 @@ async fn callback(
         return error_page("Sign-in is not configured on this server yet.");
     };
 
-    // Clear the in-flight cookies regardless of outcome.
     let clear = |response: Response| {
         (
             CookieJar::new()
                 .add(removal_cookie(STATE_COOKIE))
-                .add(removal_cookie(VERIFIER_COOKIE)),
+                .add(removal_cookie(VERIFIER_COOKIE))
+                .add(removal_cookie(NONCE_COOKIE)),
             response,
         )
             .into_response()
@@ -290,7 +280,8 @@ async fn callback(
 
     if let Some(error) = params.error {
         return clear(error_page(&format!(
-            "ContestDojo returned an error: {error}."
+            "ContestDojo returned an error: {}.",
+            html_escape(&error)
         )));
     }
 
@@ -300,77 +291,114 @@ async fn callback(
 
     let expected_state = jar.get(STATE_COOKIE).map(|c| c.value().to_owned());
     let verifier = jar.get(VERIFIER_COOKIE).map(|c| c.value().to_owned());
+    let nonce = jar.get(NONCE_COOKIE).map(|c| c.value().to_owned());
 
-    let (Some(expected_state), Some(verifier)) = (expected_state, verifier) else {
-        return clear(error_page("Your sign-in session expired. Please try again."));
+    let (Some(expected_state), Some(verifier), Some(nonce)) =
+        (expected_state, verifier, nonce)
+    else {
+        return clear(error_page(
+            "Your sign-in session expired. Please try again.",
+        ));
     };
 
     if expected_state != returned_state {
-        return clear(error_page("State mismatch — please try signing in again."));
+        return clear(error_page(
+            "State mismatch — please try signing in again.",
+        ));
     }
 
-    let http = reqwest::Client::new();
+    let client = CoreClient::from_provider_metadata(
+        cfg.metadata.clone(),
+        cfg.client_id.clone(),
+        Some(cfg.client_secret.clone()),
+    )
+    .set_redirect_uri(cfg.redirect_uri.clone());
 
-    // Step 2: exchange the code for tokens.
-    let token: TokenResponse = match http
-        .post(format!("{}/token", cfg.issuer))
-        .form(&[
-            ("grant_type", "authorization_code"),
-            ("client_id", cfg.client_id.as_str()),
-            ("client_secret", cfg.client_secret.as_str()),
-            ("redirect_uri", cfg.redirect_uri.as_str()),
-            ("code", code.as_str()),
-            ("code_verifier", verifier.as_str()),
-        ])
-        .send()
+    // Exchange the authorization code for tokens (PKCE + client_secret_post).
+    let exchange = match client.exchange_code(AuthorizationCode::new(code)) {
+        Ok(req) => req,
+        Err(err) => {
+            leptos::logging::error!("token endpoint not configured: {err}");
+            return clear(error_page("Sign-in is misconfigured on this server."));
+        }
+    };
+    let token_response = match exchange
+        .set_pkce_verifier(PkceCodeVerifier::new(verifier))
+        .request_async(&cfg.http_client)
         .await
-        .and_then(|r| r.error_for_status())
     {
-        Ok(resp) => match resp.json().await {
-            Ok(token) => token,
-            Err(err) => {
-                leptos::logging::error!("token decode failed: {err}");
-                return clear(error_page("Could not read the token response."));
-            }
-        },
+        Ok(resp) => resp,
         Err(err) => {
             leptos::logging::error!("token exchange failed: {err}");
             return clear(error_page("Token exchange with ContestDojo failed."));
         }
     };
 
-    // Identity + account type come from the id_token (ContestDojo embeds
-    // `email`, `name`, and `type` there; no UserInfo call is needed).
-    let claims = token.id_token.as_deref().and_then(decode_jwt_claims::<IdClaims>);
+    // Verify the id_token: RS256 signature via JWKS, plus iss/aud/exp/nonce.
+    let id_token = match token_response.extra_fields().id_token() {
+        Some(t) => t,
+        None => return clear(error_page("No ID token in the response.")),
+    };
+
+    let claims = match id_token.claims(&client.id_token_verifier(), &Nonce::new(nonce)) {
+        Ok(c) => c,
+        Err(err) => {
+            leptos::logging::error!("id_token verification failed: {err}");
+            return clear(error_page("Could not verify your identity token."));
+        }
+    };
 
     let identity: Option<String> = claims
-        .as_ref()
-        .and_then(|c| c.email.clone().or_else(|| c.name.clone()));
+        .email()
+        .map(|e| e.to_string())
+        .or_else(|| {
+            claims
+                .name()
+                .and_then(|n| n.get(None))
+                .map(|n| n.to_string())
+        });
 
-    // Only student accounts may join the puzzle round. Coaches/admins/orgs are
-    // rejected up front with a clear message (they also lack a team
-    // registration, but this makes the intent explicit). If the type claim is
-    // absent we fall through to the team gate below.
-    if let Some(acct_type) = claims.as_ref().and_then(|c| c.acct_type.as_deref()) {
-        if acct_type != "student" {
+    // The `type` claim (student/coach/admin) is ContestDojo-specific. Fetch it
+    // from the UserInfo endpoint, already authenticated via the access token.
+    let acct_type: Option<String> = match cfg.metadata.userinfo_endpoint() {
+        Some(url) => {
+            match cfg
+                .http_client
+                .get(url.url().as_str())
+                .bearer_auth(token_response.access_token().secret())
+                .send()
+                .await
+            {
+                Ok(r) => r.json::<UserInfo>().await.ok().and_then(|u| u.acct_type),
+                Err(_) => None,
+            }
+        }
+        None => None,
+    };
+
+    // Student-only gate.
+    if let Some(ref t) = acct_type {
+        if t != "student" {
             return clear(error_page_with_identity(
                 &format!(
-                    "Only student accounts can join the puzzle round (your account type is \"{}\"). \
-                     Sign in with the student account that is registered on your team.",
-                    html_escape(acct_type)
+                    "Only student accounts can join the puzzle round \
+                     (your account type is \"{}\"). Sign in with the student \
+                     account that is registered on your team.",
+                    html_escape(t)
                 ),
                 identity.as_deref(),
             ));
         }
     }
 
-    // Step 3: read this user's registration for the configured event.
-    let resp = match http
+    // Read this user's registration for the configured event.
+    let resp = match cfg
+        .http_client
         .get(format!(
             "{}/v1alpha1/me/events/{}",
             cfg.api_base, cfg.event_id
         ))
-        .bearer_auth(&token.access_token)
+        .bearer_auth(token_response.access_token().secret())
         .send()
         .await
     {
@@ -406,17 +434,20 @@ async fn callback(
 
     let Some(team) = envelope.team else {
         return clear(error_page_with_identity(
-            "You are registered, but not assigned to a team yet. Ask your coach to add you to a team, then sign in again.",
+            "You are registered, but not assigned to a team yet. \
+             Ask your coach to add you to a team, then sign in again.",
             identity.as_deref(),
         ));
     };
 
-    let user_name = envelope.registration.and_then(|r| match (r.fname, r.lname) {
-        (Some(f), Some(l)) => Some(format!("{f} {l}")),
-        (Some(f), None) => Some(f),
-        (None, Some(l)) => Some(l),
-        (None, None) => None,
-    });
+    let user_name = envelope
+        .registration
+        .and_then(|r| match (r.fname, r.lname) {
+            (Some(f), Some(l)) => Some(format!("{f} {l}")),
+            (Some(f), None) => Some(f),
+            (None, Some(l)) => Some(l),
+            (None, None) => None,
+        });
 
     let session = TeamSession {
         team_id: team.id,
@@ -434,6 +465,7 @@ async fn callback(
     let jar = CookieJar::new()
         .add(removal_cookie(STATE_COOKIE))
         .add(removal_cookie(VERIFIER_COOKIE))
+        .add(removal_cookie(NONCE_COOKIE))
         .add(session_cookie);
 
     (jar, Redirect::to("/")).into_response()
@@ -446,7 +478,6 @@ async fn logout() -> Response {
 
 // --- shared lookups (used by server fns and the websocket handler) ----------
 
-/// The auth config currently in the Leptos request context, if configured.
 pub fn config() -> AuthState {
     use_context::<AuthState>().flatten()
 }
@@ -458,8 +489,6 @@ fn cookie_value<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
     })
 }
 
-/// Resolve the signed-in team from the current request's cookies. Used by the
-/// `current_team` server function and the websocket join handler.
 pub async fn team_from_request() -> Option<TeamSession> {
     let cfg = config()?;
     let headers = leptos_axum::extract::<header::HeaderMap>().await.ok()?;
