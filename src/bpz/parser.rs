@@ -5,7 +5,7 @@ use chumsky::{text::inline_whitespace, Parser};
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::bpz::{Cell, Dir, Portal, Pos, Puzzle, Shading};
+use crate::bpz::{Cell, Dir, Portal, Pos, Puzzle, PuzzleType, Shading};
 
 #[derive(Debug, Clone)]
 pub enum Instr {
@@ -20,6 +20,8 @@ pub enum Instr {
     SetText(Pos, String),
     AddArrow(Pos, Dir),
     AddPortal(Portal),
+    SetRegion(Pos, u32),
+    RectSetRegion { bl: Pos, tr: Pos, region_id: u32 },
     Noop,
 }
 
@@ -120,6 +122,20 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Vec<Instr>, extra::Err<Rich<'a, 
             .then(uint())
             .map(|((end, start), nticks)| Portal { start, end, nticks })
             .map(Instr::AddPortal),
+        just("RECT-REGION")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .then_ignore(inline_whitespace())
+            .then(pos())
+            .then_ignore(inline_whitespace())
+            .then(uint())
+            .map(|((bl, tr), region_id)| Instr::RectSetRegion { bl, tr, region_id }),
+        just("REGION")
+            .then(inline_whitespace())
+            .ignore_then(pos())
+            .then_ignore(inline_whitespace())
+            .then(uint())
+            .map(|(pos, region_id)| Instr::SetRegion(pos, region_id)),
         just("PATH")
             .then(inline_whitespace())
             .then(none_of('\n').repeated())
@@ -145,14 +161,16 @@ pub enum BuildError {
 pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
     let mut width = None;
     let mut height = None;
+    let mut puzzle_type = PuzzleType::default();
     let mut cells: HashMap<Pos, Cell> = HashMap::new();
     let mut portals = vec![];
 
     for instr in instrs {
         match instr {
             Instr::Heading(_) => {}
-            Instr::SetPuzzleType(puzzle_type) => match puzzle_type.as_str() {
-                "icebarn" => {}
+            Instr::SetPuzzleType(pt) => match pt.as_str() {
+                "icebarn" => puzzle_type = PuzzleType::Icebarn,
+                "aqre" => puzzle_type = PuzzleType::Aqre,
                 _ => return Err(BuildError::UnknownPuzzleType),
             },
             Instr::SetWidth(w) => {
@@ -188,6 +206,14 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
             }
             Instr::AddArrow(pos, dir) => {
                 cells.entry(pos).or_default().insert_arrow(dir);
+            }
+            Instr::SetRegion(pos, region_id) => {
+                cells.entry(pos).or_default().set_region(region_id);
+            }
+            Instr::RectSetRegion { bl, tr, region_id } => {
+                for pos in Pos::rect(bl, tr) {
+                    cells.entry(pos).or_default().set_region(region_id);
+                }
             }
             Instr::AddPortal(portal @ Portal { start, end, nticks }) => {
                 portals.push(portal);
@@ -261,6 +287,7 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
     }
 
     Ok(Puzzle {
+        puzzle_type,
         bl: Pos { row: -1, col: -1 },
         tr: Pos {
             row: height,
