@@ -9,8 +9,12 @@ use leptos_router::{
 };
 
 use crate::{
-    components::{button::Button, input::Input},
+    components::{
+        button::{Button, ButtonColor},
+        input::Input,
+    },
     editor::{board::singleplayer::SingleplayerBoard, PuzzleEditor, State},
+    examples::Examples,
     heroicons::solid::{NoSignal, Signal},
     puzzles::PUZZLES,
     realtime::connect_client,
@@ -50,7 +54,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/icebarn-rs.css" />
 
         // sets the document title
-        <Title text="BmMT 2025 Online Puzzle Round" />
+        <Title text="BmMT 2026 Online Puzzle Round" />
 
         // content for this welcome page
         <Router>
@@ -68,6 +72,36 @@ enum Mode {
     Lobby,
     Singleplayer,
     Multiplayer(String),
+}
+
+/// The variant a puzzle belongs to, derived from its name ("Basic 1" -> "Basic").
+fn group_label(name: &str) -> &str {
+    name.split_whitespace().next().unwrap_or(name)
+}
+
+/// Lay puzzles out in per-variant sections with a heading, preserving order.
+fn grouped_puzzles(items: Vec<(String, AnyView)>) -> Vec<AnyView> {
+    let mut sections: Vec<(String, Vec<AnyView>)> = Vec::new();
+    for (name, view) in items {
+        let group = group_label(&name).to_owned();
+        match sections.last_mut() {
+            Some((g, views)) if *g == group => views.push(view),
+            _ => sections.push((group, vec![view])),
+        }
+    }
+
+    sections
+        .into_iter()
+        .map(|(group, views)| {
+            view! {
+                <section class="flex flex-col gap-4">
+                    <h2 class="text-xl font-bold border-b border-gray-200 pb-1">{group}</h2>
+                    <div class="flex flex-wrap gap-6 items-start">{views}</div>
+                </section>
+            }
+            .into_any()
+        })
+        .collect()
 }
 
 #[component]
@@ -92,8 +126,14 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-full min-h-screen max-w-128 justify-center p-8 gap-8">
-            <form class="flex gap-4" on:submit=join_team>
+        <div class="mx-auto flex flex-col w-full min-h-screen max-w-sm justify-center p-6 gap-6">
+            <div class="flex flex-col gap-1 text-center">
+                <h1 class="text-2xl font-bold">"BmMT 2026 Puzzle Round"</h1>
+                <p class="text-sm text-gray-500">
+                    "Join your team with your password, or solve on your own."
+                </p>
+            </div>
+            <form class="flex gap-3" on:submit=join_team>
                 <Input {..} node_ref=input_element placeholder="Enter team password..." />
                 <Button {..}>"Join Team"</Button>
             </form>
@@ -105,7 +145,7 @@ fn Lobby(set_mode: WriteSignal<Mode>) -> impl IntoView {
                     <span class="bg-white px-2 text-sm text-gray-500">or</span>
                 </div>
             </div>
-            <Button {..} on:click=move |_| set_mode.set(Mode::Singleplayer)>
+            <Button color={ButtonColor::Ghost} {..} on:click=move |_| set_mode.set(Mode::Singleplayer)>
                 Singleplayer
             </Button>
         </div>
@@ -126,19 +166,23 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
         move || {
             if client.heartbeat_state.is_connected.get() {
                 view! {
-                    <Signal {..} class="w-6 h-6" />
-                    "Connected. Your team's updates will sync in real-time."
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm font-medium">
+                        <Signal {..} class="w-4 h-4" />
+                        "Connected — your team's updates sync in real-time."
+                    </span>
                 }
                 .into_any()
             } else {
                 view! {
-                    <NoSignal {..} class="w-6 h-6 text-red-500" />
-                    {client
-                        .heartbeat_state
-                        .fatal_error
-                        .read()
-                        .as_deref()
-                        .unwrap_or("Disconnected. If this persists, try reloading the page.")}
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 text-red-800 px-3 py-1 text-sm font-medium">
+                        <NoSignal {..} class="w-4 h-4" />
+                        {client
+                            .heartbeat_state
+                            .fatal_error
+                            .read()
+                            .as_deref()
+                            .unwrap_or("Disconnected. If this persists, try reloading the page.")}
+                    </span>
                 }
                 .into_any()
             }
@@ -157,8 +201,8 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
-            <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
+        <div class="mx-auto flex flex-col w-full max-w-5xl p-4 sm:p-8 gap-8">
+            <div class="flex flex-wrap gap-4 items-center sticky top-0 bg-white/95 backdrop-blur z-100 py-3 border-b border-gray-200">
                 {status} <div class="flex-1" /> <Button {..} on:click=leave_room>
                     Leave Room
                 </Button>
@@ -166,13 +210,17 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
             <Rules />
             <Show when=ready>
                 {if let Some(state) = &*client.editor_state.read() {
-                    state
+                    let items = state
                         .iter()
                         .map(|(key, (puzzle, state))| {
-                            view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
+                            (
+                                key.clone(),
+                                view! { <PuzzleEditor name=key puzzle=puzzle state=*state /> }
+                                    .into_any(),
+                            )
                         })
-                        .collect::<Vec<_>>()
-                        .into_any()
+                        .collect::<Vec<_>>();
+                    grouped_puzzles(items).into_any()
                 } else {
                     view! { "Something weird occurred. If this persists, try reloading the page." }
                         .into_any()
@@ -184,12 +232,15 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
 
 #[component]
 fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
-    let puzzles: Vec<_> = PUZZLES
+    let items: Vec<(String, AnyView)> = PUZZLES
         .iter()
         .map(|(key, puzzle)| {
             let state =
                 RwSignal::new(State::new(SingleplayerBoard::default(), puzzle.puzzle_type));
-            view! { <PuzzleEditor name=key puzzle=puzzle state=state /> }
+            (
+                (*key).to_owned(),
+                view! { <PuzzleEditor name=key puzzle=puzzle state=state /> }.into_any(),
+            )
         })
         .collect();
 
@@ -198,14 +249,17 @@ fn Singleplayer(set_mode: WriteSignal<Mode>) -> impl IntoView {
     };
 
     view! {
-        <div class="mx-auto flex flex-col w-min min-w-xl justify-center p-8 gap-8">
-            <div class="flex gap-4 items-center sticky top-0 bg-white z-100 p-2 shadow">
-                "Singleplayer mode" <div class="flex-1" /> <Button {..} on:click=leave_room>
+        <div class="mx-auto flex flex-col w-full max-w-5xl p-4 sm:p-8 gap-8">
+            <div class="flex flex-wrap gap-4 items-center sticky top-0 bg-white/95 backdrop-blur z-100 py-3 border-b border-gray-200">
+                <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-3 py-1 text-sm font-medium">
+                    "Singleplayer mode"
+                </span> <div class="flex-1" />
+                <Button color={ButtonColor::Danger} {..} on:click=leave_room>
                     Close and Delete Game
                 </Button>
             </div>
             <Rules />
-            {puzzles}
+            {grouped_puzzles(items)}
         </div>
     }
 }
@@ -269,5 +323,7 @@ fn Rules() -> impl IntoView {
             </p>
             <p>"You can also click Clear to clear the entire grid. (Be careful! You can't undo a clear.)"</p>
         </div>
+
+        <Examples />
     }
 }

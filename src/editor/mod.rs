@@ -127,9 +127,9 @@ pub fn PuzzleEditor<'a, T: Board>(
         .collect::<Vec<_>>();
 
     view! {
-        <div class="border border-gray-300 rounded-lg p-4">
+        <div class="border border-gray-300 rounded-lg p-4 flex flex-col gap-3 shadow-sm transition-shadow hover:shadow-md">
             <h3 class="text-lg font-semibold">{name.to_owned()}</h3>
-            <div class="relative">
+            <div class="relative overflow-x-auto">
                 <table class="select-none">
                     <tbody>
                         {(puzzle.bl.row..=puzzle.tr.row).rev().map(render_row).collect::<Vec<_>>()}
@@ -137,25 +137,27 @@ pub fn PuzzleEditor<'a, T: Board>(
                 </table>
                 {portals}
             </div>
-            {move || {
-                if clearing.get() {
-                    view! {
-                        <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
-                            <Trash attr:class="w-4 h-4" />
-                            "Click again to confirm"
-                        </Button>
+            <div class="flex">
+                {move || {
+                    if clearing.get() {
+                        view! {
+                            <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
+                                <Trash attr:class="w-4 h-4" />
+                                "Click again to confirm"
+                            </Button>
+                        }
+                            .into_any()
+                    } else {
+                        view! {
+                            <Button color={ButtonColor::Ghost} {..} type="button" on:click=clear>
+                                <Trash attr:class="w-4 h-4" />
+                                "Clear"
+                            </Button>
+                        }
+                            .into_any()
                     }
-                        .into_any()
-                } else {
-                    view! {
-                        <Button color={ButtonColor::Warning} {..} type="button" on:click=clear>
-                            <Trash attr:class="w-4 h-4" />
-                            "Clear"
-                        </Button>
-                    }
-                        .into_any()
-                }
-            }}
+                }}
+            </div>
         </div>
     }
 }
