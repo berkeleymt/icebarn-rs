@@ -1,3 +1,7 @@
+// See src/lib.rs: raised so cargo-leptos release builds don't hit E0275
+// (trait-solver overflow) on nested leptos/tachys view tuples. No behavior change.
+#![recursion_limit = "256"]
+
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {

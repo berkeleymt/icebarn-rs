@@ -1,0 +1,24 @@
+# Build artifacts
+target/
+debug/
+
+# VCS
+.git/
+.gitignore
+
+# Node / Playwright (end2end tooling, not needed for the server build)
+node_modules/
+end2end/node_modules/
+end2end/test-results/
+end2end/playwright-report/
+
+# Editor / OS cruft
+**/*.rs.bk
+*.pdb
+.DS_Store
+
+# Deployment files (not part of the build context)
+Dockerfile
+.dockerignore
+deploy/
+docker-compose.yaml

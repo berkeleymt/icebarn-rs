@@ -1,0 +1,27 @@
+# Non-sensitive runtime configuration for icebarn-rs.
+# Copy/rename and replace the PLACEHOLDER values to match your environment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: icebarn-rs-config
+  labels:
+    app.kubernetes.io/name: icebarn-rs
+data:
+  # --- Leptos runtime (must match the image layout; see deploy/README.md) ---
+  # Bind on all interfaces so the Service can reach the server inside the pod.
+  LEPTOS_SITE_ADDR: "0.0.0.0:3000"
+  LEPTOS_SITE_ROOT: "site"
+  LEPTOS_SITE_PKG_DIR: "pkg"
+  LEPTOS_OUTPUT_NAME: "icebarn-rs"
+
+  # --- ContestDojo OAuth (PR #4) — non-sensitive values ---
+  # OIDC client id registered with the provider.
+  OIDC_CLIENT_ID: "bmmt_puzzle"
+  # Must be https://<PROD_DOMAIN>/auth/callback and registered on the OIDC client.
+  OIDC_REDIRECT_URI: "https://PLACEHOLDER_DOMAIN/auth/callback"
+  # ContestDojo event id this puzzle round is scoped to.
+  CONTESTDOJO_EVENT_ID: "PLACEHOLDER_EVENT_ID"
+
+  # --- Optional overrides (sane production defaults; uncomment only if needed) ---
+  # OIDC_ISSUER: "https://contestdojo.com/api/oidc"
+  # CONTESTDOJO_API_BASE: "https://api.contestdojo.com"
