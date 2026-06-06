@@ -339,3 +339,65 @@ pub fn build(instrs: Vec<Instr>) -> Result<Puzzle, BuildError> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::bpz::{Pos, Puzzle};
+
+    /// Every worked example bundled in `src/examples/` must parse.
+    static EXAMPLES: &[(&str, &str)] = &[
+        ("basic-sample", include_str!("../examples/basic-sample.bpz")),
+        ("basic-solution", include_str!("../examples/basic-solution.bpz")),
+        ("basic-bad-connected", include_str!("../examples/basic-bad-connected.bpz")),
+        ("basic-bad-count", include_str!("../examples/basic-bad-count.bpz")),
+        ("basic-bad-row", include_str!("../examples/basic-bad-row.bpz")),
+        ("paint-sample", include_str!("../examples/paint-sample.bpz")),
+        ("paint-solution", include_str!("../examples/paint-solution.bpz")),
+        ("paint-bad", include_str!("../examples/paint-bad.bpz")),
+        ("spiral-sample", include_str!("../examples/spiral-sample.bpz")),
+        ("spiral-solution", include_str!("../examples/spiral-solution.bpz")),
+        ("spiral-bad", include_str!("../examples/spiral-bad.bpz")),
+        ("binario-sample", include_str!("../examples/binario-sample.bpz")),
+        ("binario-solution", include_str!("../examples/binario-solution.bpz")),
+        ("binario-bad", include_str!("../examples/binario-bad.bpz")),
+        ("spiral-sym-1", include_str!("../examples/spiral-sym-1.bpz")),
+        ("spiral-sym-2", include_str!("../examples/spiral-sym-2.bpz")),
+        ("spiral-sym-3", include_str!("../examples/spiral-sym-3.bpz")),
+        ("spiral-sym-4", include_str!("../examples/spiral-sym-4.bpz")),
+    ];
+
+    #[test]
+    fn shade_and_xmark_instructions_set_cell_flags() {
+        let puzzle: Puzzle = "WIDTH 3\n\
+             HEIGHT 3\n\
+             PUZZLE-TYPE aqre\n\
+             SHADE 0,0\n\
+             XMARK 2,2\n\
+             RECT-SHADE 0,2 1,2\n\
+             RECT-XMARK 2,0 2,1"
+            .parse()
+            .expect("test puzzle should parse");
+
+        // Single-cell overlays.
+        assert!(puzzle.get_cell(Pos { row: 0, col: 0 }).shaded);
+        assert!(puzzle.get_cell(Pos { row: 2, col: 2 }).xmark);
+
+        // Rectangle overlays cover every cell in the span.
+        assert!(puzzle.get_cell(Pos { row: 2, col: 0 }).shaded);
+        assert!(puzzle.get_cell(Pos { row: 2, col: 1 }).shaded);
+        assert!(puzzle.get_cell(Pos { row: 0, col: 2 }).xmark);
+        assert!(puzzle.get_cell(Pos { row: 1, col: 2 }).xmark);
+
+        // Untouched cells keep both flags clear.
+        let plain = puzzle.get_cell(Pos { row: 1, col: 1 });
+        assert!(!plain.shaded && !plain.xmark);
+    }
+
+    #[test]
+    fn all_worked_examples_parse() {
+        for (name, src) in EXAMPLES {
+            src.parse::<Puzzle>()
+                .unwrap_or_else(|e| panic!("example {name} failed to parse: {e:?}"));
+        }
+    }
+}
+
