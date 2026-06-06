@@ -155,16 +155,42 @@ fn removal_cookie(name: &'static str) -> Cookie<'static> {
 }
 
 fn error_page(message: &str) -> Response {
+    error_page_with_identity(message, None)
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn error_page_with_identity(message: &str, signed_in_as: Option<&str>) -> Response {
+    let identity = match signed_in_as {
+        Some(who) => format!(
+            "<p style=\"color:#6b7280;font-size:0.9rem\">You're signed in as <strong>{}</strong>. \
+             If that's not the account you registered with, sign out of ContestDojo and try again.</p>",
+            html_escape(who)
+        ),
+        None => String::new(),
+    };
     Html(format!(
         "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Sign-in error</title>\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>\
          <body style=\"font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5\">\
          <h1 style=\"font-size:1.25rem\">Could not sign you in</h1>\
          <p>{message}</p>\
+         {identity}\
          <p><a href=\"/\">Back to the puzzle round</a></p>\
          </body></html>"
     ))
     .into_response()
+}
+
+/// Decode (without verifying) the claims payload of a JWT.
+fn decode_jwt_claims<T: serde::de::DeserializeOwned>(jwt: &str) -> Option<T> {
+    let payload = jwt.split('.').nth(1)?;
+    let bytes = URL_SAFE_NO_PAD.decode(payload).ok()?;
+    serde_json::from_slice(&bytes).ok()
 }
 
 // --- route handlers ---------------------------------------------------------
@@ -205,6 +231,19 @@ struct CallbackParams {
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
+    #[serde(default)]
+    id_token: Option<String>,
+}
+
+/// Identity claims embedded in the OIDC `id_token` (scopes `profile`, `email`).
+#[derive(Debug, Deserialize)]
+struct IdClaims {
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default, rename = "type")]
+    acct_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -300,6 +339,31 @@ async fn callback(
         }
     };
 
+    // Identity + account type come from the id_token (ContestDojo embeds
+    // `email`, `name`, and `type` there; no UserInfo call is needed).
+    let claims = token.id_token.as_deref().and_then(decode_jwt_claims::<IdClaims>);
+
+    let identity: Option<String> = claims
+        .as_ref()
+        .and_then(|c| c.email.clone().or_else(|| c.name.clone()));
+
+    // Only student accounts may join the puzzle round. Coaches/admins/orgs are
+    // rejected up front with a clear message (they also lack a team
+    // registration, but this makes the intent explicit). If the type claim is
+    // absent we fall through to the team gate below.
+    if let Some(acct_type) = claims.as_ref().and_then(|c| c.acct_type.as_deref()) {
+        if acct_type != "student" {
+            return clear(error_page_with_identity(
+                &format!(
+                    "Only student accounts can join the puzzle round (your account type is \"{}\"). \
+                     Sign in with the student account that is registered on your team.",
+                    html_escape(acct_type)
+                ),
+                identity.as_deref(),
+            ));
+        }
+    }
+
     // Step 3: read this user's registration for the configured event.
     let resp = match http
         .get(format!(
@@ -317,30 +381,33 @@ async fn callback(
         }
     };
 
-    if resp.status() == reqwest::StatusCode::NOT_FOUND {
-        return clear(error_page(
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return clear(error_page_with_identity(
             "You are not registered for this event on ContestDojo.",
+            identity.as_deref(),
         ));
     }
 
-    let status = resp.status();
     if !status.is_success() {
-        let body = resp.text().await.unwrap_or_default();
         leptos::logging::error!("events request returned {status}: {body}");
         return clear(error_page("Could not read your event registration."));
     }
 
-    let envelope: EventEnvelope = match resp.json().await {
+    let envelope: EventEnvelope = match serde_json::from_str(&body) {
         Ok(envelope) => envelope,
         Err(err) => {
-            leptos::logging::error!("events decode failed: {err}");
+            leptos::logging::error!("events decode failed: {err}; body={body}");
             return clear(error_page("Could not read your event registration."));
         }
     };
 
     let Some(team) = envelope.team else {
-        return clear(error_page(
+        return clear(error_page_with_identity(
             "You are registered, but not assigned to a team yet. Ask your coach to add you to a team, then sign in again.",
+            identity.as_deref(),
         ));
     };
 
