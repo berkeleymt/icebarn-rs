@@ -28,15 +28,15 @@
 }
 
 td.aqre-shaded {
-    background-color: rgb(75 85 99);
+    background-color: var(--color-gray-500);
 }
 
 td.aqre-shaded span {
-    color: white;
+    color: var(--color-white);
 }
 
 td.aqre-shaded:is(:where(.group):hover) {
-    background-color: rgb(107 114 128);
+    background-color: var(--color-gray-400);
 }
 
 /* TODO: Figure out a better way to do this */
