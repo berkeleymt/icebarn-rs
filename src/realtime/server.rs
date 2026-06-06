@@ -146,6 +146,13 @@ impl Room {
     }
 
     async fn recv_op(&mut self, key: String, op: Op) -> Result<()> {
+        // Enforce the round lock server-side: once the round is not (or no
+        // longer) running, silently drop edits so a tampered client cannot
+        // keep solving after time is up.
+        if crate::round::server::is_locked(&self.pool).await {
+            return Ok(());
+        }
+
         self.saved = false;
         if let Some((_, state)) = self.puzzles.get_mut(&key) {
             state.apply_op(op.clone())

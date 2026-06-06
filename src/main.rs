@@ -35,6 +35,8 @@ async fn main() {
         .await
         .unwrap();
 
+    icebarn_rs::round::server::init(&pool).await.unwrap();
+
     let auth_config = AuthConfig::from_env().await;
     match &auth_config {
         Some(_) => log!("ContestDojo OAuth enabled"),

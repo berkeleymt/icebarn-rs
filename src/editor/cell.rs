@@ -96,6 +96,9 @@ pub fn PuzzleCell<'a, T: Board>(
     #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
     marked: Signal<bool>,
     set_state: WriteSignal<State<T>>,
+    /// When `true`, pointer interactions are ignored so the board is read-only.
+    #[prop(into)]
+    locked: Signal<bool>,
 ) -> impl IntoView {
     let (border_td, border_div) = cell_border_classes(puzzle, pos);
     let mut td_classes = vec!["group w-12 h-12".to_owned()];
@@ -120,32 +123,54 @@ pub fn PuzzleCell<'a, T: Board>(
         })
         .collect();
 
-    let mut overlay_classes = vec!["absolute inset-0 z-100"];
-
-    if cell.interactive() {
-        overlay_classes.push("cursor-pointer group-hover:bg-black/10");
-    }
+    let interactive = cell.interactive();
+    let overlay_class = move || {
+        let mut classes = String::from("absolute inset-0 z-100");
+        if interactive && !locked.get() {
+            classes.push_str(" cursor-pointer group-hover:bg-black/10");
+        }
+        classes
+    };
 
     let interactive_overlay = view! {
         <div
-            class=overlay_classes.join(" ")
+            class=overlay_class
             class:marked=move || !is_aqre && marked.get()
             on:click=move |evt| {
+                if locked.get() {
+                    return;
+                }
                 if evt.button() == 0 {
                     set_state.write().on_click(pos)
                 };
             }
             on:contextmenu=move |evt| {
+                if locked.get() {
+                    return;
+                }
                 set_state.write().on_contextmenu(pos);
                 evt.prevent_default();
             }
             on:mousedown=move |evt| {
+                if locked.get() {
+                    return;
+                }
                 if evt.button() == 0 {
                     set_state.write().on_mousedown(pos)
                 };
             }
-            on:mouseenter=move |_| set_state.write().on_mouseenter(pos)
-            on:mouseleave=move |_| set_state.write().on_mouseleave(pos)
+            on:mouseenter=move |_| {
+                if locked.get() {
+                    return;
+                }
+                set_state.write().on_mouseenter(pos)
+            }
+            on:mouseleave=move |_| {
+                if locked.get() {
+                    return;
+                }
+                set_state.write().on_mouseleave(pos)
+            }
         />
     };
 

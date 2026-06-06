@@ -7,6 +7,7 @@ pub mod examples;
 pub mod heroicons;
 pub mod puzzles;
 pub mod realtime;
+pub mod round;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

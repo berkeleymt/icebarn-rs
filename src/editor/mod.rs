@@ -25,6 +25,10 @@ pub fn PuzzleEditor<'a, T: Board>(
     name: &'a str,
     puzzle: &'a Puzzle,
     state: RwSignal<State<T>>,
+    /// When `true`, the board is read-only: cell edits and the clear button are
+    /// disabled (used to lock boards outside the live round window).
+    #[prop(into)]
+    locked: Signal<bool>,
 ) -> impl IntoView {
     let (state, set_state) = state.split();
     let preview = move || state.read().preview();
@@ -67,7 +71,7 @@ pub fn PuzzleEditor<'a, T: Board>(
                 .collect::<HashMap<_, _>>()
         });
 
-        view! { <PuzzleCell puzzle=&puzzle pos=pos marked=marked lines=lines set_state=set_state /> }
+        view! { <PuzzleCell puzzle=&puzzle pos=pos marked=marked lines=lines set_state=set_state locked=locked /> }
     };
 
     let render_row = |row| {
@@ -141,7 +145,9 @@ pub fn PuzzleEditor<'a, T: Board>(
             </div>
             <div class="flex">
                 {move || {
-                    if clearing.get() {
+                    if locked.get() {
+                        view! {}.into_any()
+                    } else if clearing.get() {
                         view! {
                             <Button color={ButtonColor::Danger} {..} type="button" on:click=confirm_clear>
                                 <Trash attr:class="w-4 h-4" />
