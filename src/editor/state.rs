@@ -120,9 +120,7 @@ impl<T: Board> State<T> {
         use DrawState::*;
         match self.draw_state {
             AqreShading { shade } => {
-                if shade && !self.board.marked(pos) {
-                    self.board.toggle_mark(pos);
-                } else if !shade && self.board.marked(pos) {
+                if shade != self.board.marked(pos) {
                     self.board.toggle_mark(pos);
                 }
             }
