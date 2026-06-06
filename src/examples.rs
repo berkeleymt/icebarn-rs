@@ -7,7 +7,14 @@
 //! The puzzle data below is AUTO-GENERATED from the packet sources by
 //! `decode_examples.py` — do not edit the data tables by hand.
 
+use std::{collections::HashMap, sync::LazyLock};
+
 use leptos::prelude::*;
+
+use crate::{
+    bpz::{Cell, Pos, Puzzle, PuzzleType, Shading},
+    editor::PuzzleGrid,
+};
 
 pub type Region = &'static [&'static [u32]];
 pub type Clues = &'static [&'static [i8]];
@@ -27,94 +34,67 @@ pub struct Family {
     pub diagrams: &'static [Diagram],
 }
 
-const THICK: &str = "2px solid #1f2937";
-const THIN: &str = "1px solid #9ca3af";
-
-/// A single static example grid: region outlines, clue numbers, shaded cells,
-/// and "definitely unshaded" (✕) marks. Read-only — purely illustrative.
-#[component]
-fn ExampleGrid(
-    family: &'static Family,
-    #[prop(optional)] shaded: Cells,
-    #[prop(optional)] xmark: Cells,
-) -> impl IntoView {
-    let rows = family.rows;
-    let cols = family.cols;
-
-    let reg = move |r: isize, c: isize| -> Option<u32> {
-        if r < 0 || c < 0 || r as usize >= rows || c as usize >= cols {
-            None
-        } else {
-            Some(family.region[r as usize][c as usize])
+/// Build an AQRE [`Puzzle`] from a [`Family`]'s region + clue tables so worked
+/// examples render through the same [`PuzzleGrid`] as the real puzzles.
+///
+/// Family data is in display coordinates (row `0` is the top); puzzles place
+/// row `0` at the bottom, so rows are flipped here.
+fn family_to_puzzle(family: &Family) -> Puzzle {
+    let mut cells = HashMap::new();
+    for r in 0..family.rows {
+        for c in 0..family.cols {
+            let mut cell = Cell::default();
+            cell.set_shading(Shading::Default);
+            cell.set_region(family.region[r][c]);
+            let clue = family.clues[r][c];
+            if clue >= 0 {
+                cell.set_text(clue.to_string());
+            }
+            let pos = Pos {
+                row: (family.rows - 1 - r) as i32,
+                col: c as i32,
+            };
+            cells.insert(pos, cell);
         }
-    };
-
-    let body = (0..rows)
-        .map(|r| {
-            let cells = (0..cols)
-                .map(|c| {
-                    let me = family.region[r][c];
-                    let side = |boundary: bool| if boundary { THICK } else { THIN };
-                    let (ri, ci) = (r as isize, c as isize);
-                    let top = side(reg(ri - 1, ci) != Some(me));
-                    let bottom = side(reg(ri + 1, ci) != Some(me));
-                    let left = side(reg(ri, ci - 1) != Some(me));
-                    let right = side(reg(ri, ci + 1) != Some(me));
-
-                    let is_shaded = shaded.contains(&(r, c));
-                    let bg = if is_shaded { "#d1d5db" } else { "#ffffff" };
-                    let style = format!(
-                        "width:2.25rem;height:2.25rem;border-top:{top};border-bottom:{bottom};\
-                         border-left:{left};border-right:{right};background:{bg};"
-                    );
-
-                    let clue = family.clues[r][c];
-                    let content = if clue >= 0 {
-                        view! { <span class="text-sm font-medium">{clue.to_string()}</span> }
-                            .into_any()
-                    } else if !is_shaded && xmark.contains(&(r, c)) {
-                        view! { <span class="text-xs text-gray-500">"✕"</span> }.into_any()
-                    } else {
-                        ().into_any()
-                    };
-
-                    view! { <td class="p-0 text-center align-middle" style=style>{content}</td> }
-                })
-                .collect::<Vec<_>>();
-            view! { <tr>{cells}</tr> }
-        })
-        .collect::<Vec<_>>();
-
-    view! {
-        <table class="select-none" style="border-collapse:collapse;">
-            <tbody>{body}</tbody>
-        </table>
     }
+    Puzzle::from_cells(
+        Pos { row: 0, col: 0 },
+        Pos {
+            row: family.rows as i32 - 1,
+            col: family.cols as i32 - 1,
+        },
+        cells,
+        PuzzleType::Aqre,
+    )
 }
 
 /// An example grid with a caption underneath.
 #[component]
 fn ExampleDiagram(
-    family: &'static Family,
+    puzzle: &'static Puzzle,
     #[prop(optional)] shaded: Cells,
     #[prop(optional)] xmark: Cells,
     caption: &'static str,
 ) -> impl IntoView {
     view! {
         <figure class="flex flex-col items-center gap-2 w-40 m-0">
-            <ExampleGrid family=family shaded=shaded xmark=xmark />
+            <PuzzleGrid puzzle=puzzle shaded=shaded xmark=xmark />
             <figcaption class="text-xs text-gray-600 text-center text-balance">{caption}</figcaption>
         </figure>
     }
 }
 
-fn diagram_views(family: &'static Family, range: std::ops::Range<usize>) -> Vec<AnyView> {
+fn diagram_views(
+    puzzle: &'static Puzzle,
+    family: &'static Family,
+    range: std::ops::Range<usize>,
+) -> Vec<AnyView> {
     family.diagrams[range]
         .iter()
         .map(|d| {
             view! {
                 <ExampleDiagram
-                    family=family
+                    puzzle=puzzle
                     shaded=d.shaded
                     xmark=d.xmark
                     caption=d.caption
@@ -129,6 +109,7 @@ fn diagram_views(family: &'static Family, range: std::ops::Range<usize>) -> Vec<
 fn ExampleSection(
     title: &'static str,
     intro: &'static str,
+    puzzle: &'static Puzzle,
     family: &'static Family,
     /// How many leading diagrams are "correct" (shown next to the sample puzzle).
     correct: usize,
@@ -138,15 +119,15 @@ fn ExampleSection(
             <h4 class="font-semibold">{title}</h4>
             <p>{intro}</p>
             <div class="flex flex-wrap gap-6 items-start">
-                <ExampleDiagram family=family caption="Sample puzzle" />
-                {diagram_views(family, 0..correct)}
+                <ExampleDiagram puzzle=puzzle caption="Sample puzzle" />
+                {diagram_views(puzzle, family, 0..correct)}
             </div>
             {(family.diagrams.len() > correct)
                 .then(|| {
                     view! {
                         <p>"Here are some incorrect solutions:"</p>
                         <div class="flex flex-wrap gap-6 items-start">
-                            {diagram_views(family, correct..family.diagrams.len())}
+                            {diagram_views(puzzle, family, correct..family.diagrams.len())}
                         </div>
                     }
                 })}
@@ -154,14 +135,22 @@ fn ExampleSection(
     }
 }
 
+static BASIC_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&BASIC));
+static PAINT_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&PAINT));
+static SPIRAL_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&SPIRAL));
+static BINARIO_PUZZLE: LazyLock<Puzzle> = LazyLock::new(|| family_to_puzzle(&BINARIO));
+static SPIRAL_SYMMETRY_PUZZLES: LazyLock<Vec<Puzzle>> =
+    LazyLock::new(|| SPIRAL_SYMMETRY.iter().map(family_to_puzzle).collect());
+
 #[component]
 pub fn Examples() -> impl IntoView {
     let symmetry = SPIRAL_SYMMETRY
         .iter()
-        .map(|f| {
+        .zip(SPIRAL_SYMMETRY_PUZZLES.iter())
+        .map(|(f, puzzle)| {
             let d = &f.diagrams[0];
             view! {
-                <ExampleDiagram family=f shaded=d.shaded xmark=d.xmark caption=d.caption />
+                <ExampleDiagram puzzle=puzzle shaded=d.shaded xmark=d.xmark caption=d.caption />
             }
             .into_any()
         })
@@ -172,7 +161,7 @@ pub fn Examples() -> impl IntoView {
             <div class="flex flex-col gap-2">
                 <h3 class="text-lg font-semibold">"Examples"</h3>
                 <p>
-                    "These worked examples are the same ones from the printed packet. Shaded cells are filled gray; a "
+                    "Shaded cells are filled gray; a "
                     <span class="text-gray-500">"✕"</span>
                     " marks a cell that is definitely unshaded."
                 </p>
@@ -181,6 +170,7 @@ pub fn Examples() -> impl IntoView {
             <ExampleSection
                 title="Basic"
                 intro="To solve the puzzle, shade cells so that all the Basic rules hold. This sample puzzle has exactly one solution:"
+                puzzle=&BASIC_PUZZLE
                 family=&BASIC
                 correct=1
             />
@@ -188,6 +178,7 @@ pub fn Examples() -> impl IntoView {
             <ExampleSection
                 title="Paint"
                 intro="In addition to the Basic rules, each outlined region must be either fully shaded or fully unshaded:"
+                puzzle=&PAINT_PUZZLE
                 family=&PAINT
                 correct=1
             />
@@ -202,6 +193,7 @@ pub fn Examples() -> impl IntoView {
             <ExampleSection
                 title=""
                 intro="Putting it together, this sample Spiral puzzle has exactly one solution:"
+                puzzle=&SPIRAL_PUZZLE
                 family=&SPIRAL
                 correct=1
             />
@@ -209,6 +201,7 @@ pub fn Examples() -> impl IntoView {
             <ExampleSection
                 title="Binario"
                 intro="In addition to the Basic rules, each row (but not necessarily each column) must have the same number of shaded and unshaded cells:"
+                puzzle=&BINARIO_PUZZLE
                 family=&BINARIO
                 correct=1
             />

@@ -1,7 +1,9 @@
 pub mod board;
 mod cell;
+mod grid;
 mod state;
 mod util;
+pub use grid::PuzzleGrid;
 pub use state::State;
 
 use std::{cmp::Ordering, collections::HashMap, time::Duration};

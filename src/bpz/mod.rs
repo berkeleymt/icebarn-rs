@@ -202,4 +202,26 @@ impl Puzzle {
     pub fn get_cell(&self, pos: Pos) -> &Cell {
         self.cells.get(&pos).unwrap_or(&self.default_cell)
     }
+
+    /// Build a puzzle directly from a map of cells (e.g. for static worked
+    /// examples). Cells outside the map are treated as removed, so the grid's
+    /// outer edge renders with a boundary border.
+    pub fn from_cells(
+        bl: Pos,
+        tr: Pos,
+        cells: HashMap<Pos, Cell>,
+        puzzle_type: PuzzleType,
+    ) -> Self {
+        Puzzle {
+            bl,
+            tr,
+            portals: Vec::new(),
+            default_cell: Cell {
+                shading: Shading::Removed,
+                ..Cell::default()
+            },
+            cells,
+            puzzle_type,
+        }
+    }
 }

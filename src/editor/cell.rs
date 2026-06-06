@@ -44,18 +44,15 @@ fn default_border(dir: Dir) -> (String, &'static str) {
     }
 }
 
-#[component]
-pub fn PuzzleCell<'a, T: Board>(
-    puzzle: &'a Puzzle,
-    pos: Pos,
-    #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
-    marked: Signal<bool>,
-    set_state: WriteSignal<State<T>>,
-) -> impl IntoView {
-    let mut td_classes = vec!["group w-12 h-12".to_owned()];
-    let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
+/// Compute the per-direction border classes for a cell, shared by the
+/// interactive [`PuzzleCell`] and the read-only [`PuzzleGrid`](super::grid::PuzzleGrid)
+/// so worked examples render identical region borders. Returns the `<td>` and
+/// inner `<div>` class fragments (the latter carrying border-overlap margins).
+pub(crate) fn cell_border_classes(puzzle: &Puzzle, pos: Pos) -> (Vec<String>, Vec<&'static str>) {
+    let mut td_classes: Vec<String> = Vec::new();
+    let mut div_classes: Vec<&'static str> = Vec::new();
 
-    let cell = puzzle.get_cell(pos).clone();
+    let cell = puzzle.get_cell(pos);
     let is_aqre = puzzle.puzzle_type == PuzzleType::Aqre;
 
     if cell.shading == Shading::Icebarn {
@@ -88,6 +85,26 @@ pub fn PuzzleCell<'a, T: Board>(
         td_classes.push(td_class);
         div_classes.push(div_class);
     }
+
+    (td_classes, div_classes)
+}
+
+#[component]
+pub fn PuzzleCell<'a, T: Board>(
+    puzzle: &'a Puzzle,
+    pos: Pos,
+    #[prop(into)] lines: Signal<HashMap<Dir, &'static str>>,
+    marked: Signal<bool>,
+    set_state: WriteSignal<State<T>>,
+) -> impl IntoView {
+    let (border_td, border_div) = cell_border_classes(puzzle, pos);
+    let mut td_classes = vec!["group w-12 h-12".to_owned()];
+    td_classes.extend(border_td);
+    let mut div_classes = vec!["relative w-12 h-12 flex items-center justify-center"];
+    div_classes.extend(border_div);
+
+    let cell = puzzle.get_cell(pos).clone();
+    let is_aqre = puzzle.puzzle_type == PuzzleType::Aqre;
 
     let arrows: Vec<_> = cell.arrows.iter()
         .map(|&dir| {

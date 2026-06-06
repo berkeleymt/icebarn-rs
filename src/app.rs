@@ -207,8 +207,8 @@ fn Multiplayer(room: String, set_mode: WriteSignal<Mode>) -> impl IntoView {
                     Leave Room
                 </Button>
             </div>
-            <Rules />
             <Show when=ready>
+                <Rules />
                 {if let Some(state) = &*client.editor_state.read() {
                     let items = state
                         .iter()
